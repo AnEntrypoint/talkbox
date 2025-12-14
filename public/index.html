@@ -329,7 +329,27 @@
   </div>
 
   <script>
-    const API_URL = window.location.origin;
+    // Configure API URL
+    // If running on GitHub Pages, will need to point to deployed backend
+    // If running locally, uses same origin
+    // Can override via window.TALKBOX_API_URL
+
+    let API_URL = window.location.origin;
+
+    // Check if we're on GitHub Pages
+    if (window.location.hostname.includes('github.io')) {
+      // For GitHub Pages, use the configured backend URL
+      // Default to example - users should update this
+      API_URL = window.TALKBOX_API_URL || 'https://talkbox-api.fly.dev';
+    }
+
+    // Allow override via query parameter
+    const params = new URLSearchParams(window.location.search);
+    if (params.has('api')) {
+      API_URL = params.get('api');
+    }
+
+    console.log('Talkbox frontend using API:', API_URL);
 
     function switchTab(tab) {
       // Hide all tabs
@@ -353,7 +373,18 @@
       }
 
       try {
-        const response = await fetch(`${API_URL}/generate?password=${encodeURIComponent(password)}`);
+        const response = await fetch(`${API_URL}/generate?password=${encodeURIComponent(password)}`, {
+          method: 'GET',
+          headers: {
+            'Accept': 'application/json'
+          },
+          credentials: 'omit'
+        });
+
+        if (!response.ok) {
+          throw new Error(`Server error: ${response.status} ${response.statusText}`);
+        }
+
         const data = await response.json();
 
         const html = `
@@ -371,7 +402,10 @@
         `;
         document.getElementById('gen-result').innerHTML = html;
       } catch (e) {
-        showResult('gen-result', 'Error: ' + e.message, 'error');
+        const errorMsg = e.message.includes('Failed to fetch')
+          ? 'Connection error. Check API URL and CORS settings.'
+          : e.message;
+        showResult('gen-result', 'Error: ' + errorMsg, 'error');
       }
     }
 
@@ -388,8 +422,14 @@
         const response = await fetch(`${API_URL}/send`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ shortcode, message })
+          body: JSON.stringify({ shortcode, message }),
+          credentials: 'omit'
         });
+
+        if (!response.ok) {
+          throw new Error(`Server error: ${response.status} ${response.statusText}`);
+        }
+
         const data = await response.json();
 
         if (data.success) {
@@ -399,7 +439,10 @@
           showResult('send-result', data.error || 'Failed to send', 'error');
         }
       } catch (e) {
-        showResult('send-result', 'Error: ' + e.message, 'error');
+        const errorMsg = e.message.includes('Failed to fetch')
+          ? 'Connection error. Check API URL and CORS settings.'
+          : e.message;
+        showResult('send-result', 'Error: ' + errorMsg, 'error');
       }
     }
 
@@ -411,7 +454,18 @@
       }
 
       try {
-        const response = await fetch(`${API_URL}/read?password=${encodeURIComponent(password)}`);
+        const response = await fetch(`${API_URL}/read?password=${encodeURIComponent(password)}`, {
+          method: 'GET',
+          headers: {
+            'Accept': 'application/json'
+          },
+          credentials: 'omit'
+        });
+
+        if (!response.ok) {
+          throw new Error(`Server error: ${response.status} ${response.statusText}`);
+        }
+
         const data = await response.json();
 
         if (data.success) {
@@ -440,7 +494,10 @@
           showResult('read-result', data.error || 'Failed to read', 'error');
         }
       } catch (e) {
-        showResult('read-result', 'Error: ' + e.message, 'error');
+        const errorMsg = e.message.includes('Failed to fetch')
+          ? 'Connection error. Check API URL and CORS settings.'
+          : e.message;
+        showResult('read-result', 'Error: ' + errorMsg, 'error');
       }
     }
 
