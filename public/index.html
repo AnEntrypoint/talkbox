@@ -12,63 +12,66 @@
     }
 
     body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #f8f8f8;
       min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
       padding: 20px;
     }
 
     .container {
-      width: 100%;
-      max-width: 500px;
+      max-width: 600px;
+      margin: 0 auto;
       background: white;
-      border-radius: 12px;
-      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-      padding: 40px;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      padding: 30px;
     }
 
     .header {
-      text-align: center;
       margin-bottom: 30px;
+      border-bottom: 2px solid #007bff;
+      padding-bottom: 20px;
     }
 
     .header h1 {
-      font-size: 28px;
+      font-size: 32px;
       color: #333;
       margin-bottom: 8px;
     }
 
     .header p {
       color: #666;
-      font-size: 14px;
+      font-size: 15px;
+      line-height: 1.6;
     }
 
     .tabs {
       display: flex;
-      gap: 10px;
+      gap: 5px;
       margin-bottom: 30px;
-      border-bottom: 2px solid #eee;
+      border-bottom: 2px solid #ddd;
     }
 
     .tab {
-      padding: 10px 16px;
+      padding: 12px 20px;
       border: none;
       background: none;
       cursor: pointer;
-      font-size: 14px;
+      font-size: 15px;
       font-weight: 500;
-      color: #999;
+      color: #666;
       border-bottom: 3px solid transparent;
       margin-bottom: -2px;
-      transition: all 0.2s;
+      transition: all 0.15s;
+    }
+
+    .tab:hover {
+      color: #007bff;
     }
 
     .tab.active {
-      color: #667eea;
-      border-color: #667eea;
+      color: #007bff;
+      border-color: #007bff;
     }
 
     .tab-content {
@@ -85,7 +88,7 @@
 
     label {
       display: block;
-      font-size: 13px;
+      font-size: 14px;
       font-weight: 600;
       color: #333;
       margin-bottom: 6px;
@@ -97,270 +100,217 @@
       width: 100%;
       padding: 10px 12px;
       border: 1px solid #ddd;
-      border-radius: 6px;
+      border-radius: 4px;
       font-size: 14px;
       font-family: monospace;
-      transition: border-color 0.2s;
+      transition: border-color 0.15s;
     }
 
     input[type="text"]:focus,
     input[type="password"]:focus,
     textarea:focus {
       outline: none;
-      border-color: #667eea;
-      box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+      border-color: #007bff;
+      box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.1);
     }
 
     textarea {
       resize: vertical;
       min-height: 80px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     }
 
     button {
       width: 100%;
       padding: 12px;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      background: #007bff;
       color: white;
       border: none;
-      border-radius: 6px;
-      font-size: 14px;
+      border-radius: 4px;
+      font-size: 15px;
       font-weight: 600;
       cursor: pointer;
-      transition: transform 0.2s, box-shadow 0.2s;
+      transition: background 0.15s;
     }
 
     button:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 8px 16px rgba(102, 126, 234, 0.3);
+      background: #0056b3;
     }
 
     button:active {
-      transform: translateY(0);
+      background: #004085;
     }
 
-    .copy-button {
+    button.small {
       width: auto;
       padding: 6px 12px;
       font-size: 12px;
-      background: #667eea;
       margin-left: 8px;
+      display: inline-block;
     }
 
     .result {
-      background: #f5f5f5;
-      border-left: 4px solid #667eea;
       padding: 16px;
-      border-radius: 6px;
+      border-radius: 4px;
       margin-top: 20px;
-      font-size: 13px;
+      font-size: 14px;
+      border-left: 4px solid #007bff;
+      background: #e7f3ff;
     }
 
     .result.success {
-      border-color: #10b981;
-      background: #ecfdf5;
+      border-left-color: #28a745;
+      background: #d4edda;
+      color: #155724;
     }
 
     .result.error {
-      border-color: #ef4444;
-      background: #fef2f2;
+      border-left-color: #dc3545;
+      background: #f8d7da;
+      color: #721c24;
     }
 
     .result h3 {
-      font-size: 14px;
+      font-size: 15px;
       margin-bottom: 8px;
-      color: #333;
+      font-weight: 600;
     }
 
-    .result pre {
-      background: white;
-      padding: 12px;
-      border-radius: 4px;
-      overflow-x: auto;
-      font-size: 12px;
-      color: #666;
-    }
-
-    .shortcode {
+    .shortcode-display {
       font-family: monospace;
-      font-size: 16px;
+      font-size: 18px;
       font-weight: bold;
-      color: #667eea;
+      color: #007bff;
+      padding: 12px;
+      background: #f0f8ff;
+      border-radius: 4px;
       word-break: break-all;
+      margin: 12px 0;
+      text-align: center;
     }
 
-    .messages-list {
-      max-height: 400px;
-      overflow-y: auto;
-    }
-
-    .message {
+    .message-item {
       background: #f9f9f9;
       padding: 12px;
       margin-bottom: 12px;
-      border-radius: 6px;
-      border-left: 3px solid #667eea;
+      border-radius: 4px;
+      border-left: 3px solid #007bff;
     }
 
     .message-text {
       color: #333;
       font-size: 14px;
-      margin-bottom: 4px;
+      word-break: break-word;
+      margin-bottom: 6px;
     }
 
     .message-time {
+      color: #999;
       font-size: 12px;
-      color: #999;
     }
 
-    .empty {
-      text-align: center;
-      color: #999;
-      padding: 40px 20px;
-      font-size: 14px;
-    }
-
-    .info-box {
-      background: #f0f7ff;
-      border-left: 4px solid #3b82f6;
+    .info {
+      background: #e3f2fd;
+      color: #1565c0;
       padding: 12px;
-      border-radius: 6px;
-      font-size: 13px;
-      color: #1e40af;
+      border-radius: 4px;
       margin-bottom: 20px;
+      font-size: 14px;
+      line-height: 1.5;
     }
 
-    .loading {
-      display: inline-block;
-      width: 4px;
-      height: 4px;
-      background: #667eea;
-      border-radius: 50%;
-      animation: loading 1.5s infinite;
+    .copy-container {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      margin: 12px 0;
     }
 
-    @keyframes loading {
-      0%, 100% { opacity: 0.3; }
-      50% { opacity: 1; }
+    .flex-row {
+      display: flex;
+      gap: 10px;
+      align-items: center;
     }
   </style>
 </head>
 <body>
   <div class="container">
     <div class="header">
-      <h1>📦 Talkbox</h1>
-      <p>Secure message exchange via shortcodes</p>
+      <h1>Talkbox</h1>
+      <p>Send encrypted messages with just a password. No accounts, no registration.</p>
     </div>
 
     <div class="tabs">
-      <button class="tab active" onclick="switchTab('generate')">Generate</button>
-      <button class="tab" onclick="switchTab('send')">Send</button>
-      <button class="tab" onclick="switchTab('read')">Read</button>
+      <button class="tab active" onclick="switchTab('generate')">1. Generate</button>
+      <button class="tab" onclick="switchTab('send')">2. Send</button>
+      <button class="tab" onclick="switchTab('read')">3. Read</button>
     </div>
 
     <!-- Generate Tab -->
     <div id="generate" class="tab-content active">
-      <div class="info-box">
-        Create a shortcode to share with others. Only you with the password can read messages.
+      <div class="info">
+        <strong>Step 1:</strong> Create a password. This generates your unique shortcode (no server interaction).
       </div>
 
       <div class="form-group">
-        <label for="gen-password">Your Secret Password</label>
-        <input
-          type="password"
-          id="gen-password"
-          placeholder="Make it strong and memorable"
-          value="my-secret-password"
-        >
+        <label for="gen-password">Your Password</label>
+        <input type="password" id="gen-password" placeholder="Make it strong" value="my-secret">
       </div>
 
       <button onclick="generateShortcode()">Generate Shortcode</button>
-
       <div id="gen-result"></div>
     </div>
 
     <!-- Send Tab -->
     <div id="send" class="tab-content">
-      <div class="info-box">
-        Enter the password to send a message (the shortcode is derived client-side).
+      <div class="info">
+        <strong>Step 2:</strong> Someone gives you their password. Send them an encrypted message.
       </div>
 
       <div class="form-group">
-        <label for="send-password">Receiver's Password</label>
-        <input
-          type="password"
-          id="send-password"
-          placeholder="Enter receiver's password"
-        >
+        <label for="send-password">Their Password</label>
+        <input type="password" id="send-password" placeholder="The password they shared">
       </div>
 
       <div class="form-group">
-        <label for="send-message">Message</label>
-        <textarea
-          id="send-message"
-          placeholder="Your message here..."
-        ></textarea>
+        <label for="send-message">Your Message</label>
+        <textarea id="send-message" placeholder="What do you want to say?"></textarea>
       </div>
 
       <button onclick="sendMessage()">Send Message</button>
-
       <div id="send-result"></div>
     </div>
 
     <!-- Read Tab -->
     <div id="read" class="tab-content">
-      <div class="info-box">
-        Enter your password to read all messages sent to your shortcode.
+      <div class="info">
+        <strong>Step 3:</strong> Enter your password to read all messages sent to you.
       </div>
 
       <div class="form-group">
         <label for="read-password">Your Password</label>
-        <input
-          type="password"
-          id="read-password"
-          placeholder="Enter your password"
-          value="my-secret-password"
-        >
+        <input type="password" id="read-password" placeholder="Your password" value="my-secret">
       </div>
 
       <button onclick="readMessages()">Read Messages</button>
-
       <div id="read-result"></div>
     </div>
   </div>
 
   <script>
-    // Configure API URL
-    // If running on GitHub Pages, will need to point to deployed backend
-    // If running locally, uses same origin
-    // Can override via window.TALKBOX_API_URL
-
     let API_URL = window.location.origin;
-
-    // Check if we're on GitHub Pages
     if (window.location.hostname.includes('github.io')) {
-      // For GitHub Pages, use the configured backend URL
-      // Default to example - users should update this
       API_URL = window.TALKBOX_API_URL || 'https://talkbox-api.fly.dev';
     }
-
-    // Allow override via query parameter
     const params = new URLSearchParams(window.location.search);
     if (params.has('api')) {
       API_URL = params.get('api');
     }
-
-    console.log('Talkbox frontend using API:', API_URL);
+    console.log('API URL:', API_URL);
 
     function switchTab(tab) {
-      // Hide all tabs
-      document.querySelectorAll('.tab-content').forEach(el => {
-        el.classList.remove('active');
-      });
-      document.querySelectorAll('.tab').forEach(el => {
-        el.classList.remove('active');
-      });
-
-      // Show selected tab
+      document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+      document.querySelectorAll('.tab').forEach(el => el.classList.remove('active'));
       document.getElementById(tab).classList.add('active');
       event.target.classList.add('active');
     }
@@ -370,8 +320,7 @@
       const data = encoder.encode(password);
       const hashBuffer = await crypto.subtle.digest('SHA-256', data);
       const hashArray = Array.from(new Uint8Array(hashBuffer));
-      const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-      return hashHex.substring(0, 12);
+      return hashArray.map(b => b.toString(16).padStart(2, '0')).join('').substring(0, 12);
     }
 
     async function generateShortcode() {
@@ -380,21 +329,16 @@
         showResult('gen-result', 'Please enter a password', 'error');
         return;
       }
-
       try {
         const shortcode = await hashPassword(password);
-
         const html = `
           <div class="result success">
-            <h3>✓ Shortcode Generated (Client-Side)</h3>
-            <p style="margin-bottom: 12px;">Share this code with others:</p>
-            <div style="display: flex; align-items: center; margin-bottom: 12px;">
-              <div class="shortcode">${shortcode}</div>
-              <button class="copy-button" onclick="copyToClipboard('${shortcode}')">Copy</button>
+            <h3>✓ Your Shortcode</h3>
+            <div class="shortcode-display">${shortcode}</div>
+            <div class="copy-container">
+              <button class="small" onclick="copyToClipboard('${shortcode}')">Copy Shortcode</button>
+              <span style="color: #666; font-size: 13px;">Share this with others to send you messages</span>
             </div>
-            <p style="font-size: 12px; color: #666; margin-top: 12px;">
-              🔐 Keep your password secret. Only you can read messages.
-            </p>
           </div>
         `;
         document.getElementById('gen-result').innerHTML = html;
@@ -406,39 +350,26 @@
     async function sendMessage() {
       const password = document.getElementById('send-password').value;
       const message = document.getElementById('send-message').value;
-
       if (!password || !message) {
         showResult('send-result', 'Please enter password and message', 'error');
         return;
       }
-
       try {
         const shortcode = await hashPassword(password);
-
         const response = await fetch(`${API_URL}/send`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ shortcode, password, message }),
-          credentials: 'omit'
+          body: JSON.stringify({ shortcode, password, message })
         });
-
-        if (!response.ok) {
-          throw new Error(`Server error: ${response.status} ${response.statusText}`);
-        }
-
         const data = await response.json();
-
         if (data.success) {
           document.getElementById('send-message').value = '';
-          showResult('send-result', `✓ Message sent!\nID: ${data.messageId}`, 'success');
+          showResult('send-result', '✓ Message sent successfully!', 'success');
         } else {
-          showResult('send-result', data.error || 'Failed to send', 'error');
+          showResult('send-result', 'Error: ' + (data.error || 'Failed to send'), 'error');
         }
       } catch (e) {
-        const errorMsg = e.message.includes('Failed to fetch')
-          ? 'Connection error. Check API URL and CORS settings.'
-          : e.message;
-        showResult('send-result', 'Error: ' + errorMsg, 'error');
+        showResult('send-result', 'Error: ' + e.message, 'error');
       }
     }
 
@@ -448,77 +379,43 @@
         showResult('read-result', 'Please enter your password', 'error');
         return;
       }
-
       try {
-        const response = await fetch(`${API_URL}/read?password=${encodeURIComponent(password)}`, {
-          method: 'GET',
-          headers: {
-            'Accept': 'application/json'
-          },
-          credentials: 'omit'
-        });
-
-        if (!response.ok) {
-          throw new Error(`Server error: ${response.status} ${response.statusText}`);
-        }
-
+        const response = await fetch(`${API_URL}/read?password=${encodeURIComponent(password)}`);
         const data = await response.json();
-
         if (data.success) {
           if (data.messages.length === 0) {
-            document.getElementById('read-result').innerHTML = `
-              <div class="result">
-                <p>No messages yet. Share your shortcode:</p>
-                <div class="shortcode" style="margin-top: 12px;">${data.shortcode}</div>
-              </div>
-            `;
+            const shortcode = await hashPassword(password);
+            showResult('read-result', `<h3>No messages yet</h3>Share your shortcode: <div class="shortcode-display">${shortcode}</div>`, 'success');
           } else {
-            let html = `<div class="result"><h3>📨 Messages (${data.messageCount})</h3><div class="messages-list">`;
+            let html = `<h3>📨 Messages (${data.messages.length})</h3>`;
             data.messages.forEach(msg => {
               const time = new Date(msg.timestamp).toLocaleString();
-              html += `
-                <div class="message">
-                  <div class="message-text">${escapeHtml(msg.message)}</div>
-                  <div class="message-time">${time}</div>
-                </div>
-              `;
+              html += `<div class="message-item"><div class="message-text">${escapeHtml(msg.message)}</div><div class="message-time">${time}</div></div>`;
             });
-            html += '</div></div>';
-            document.getElementById('read-result').innerHTML = html;
+            document.getElementById('read-result').innerHTML = `<div class="result success">${html}</div>`;
           }
         } else {
-          showResult('read-result', data.error || 'Failed to read', 'error');
+          showResult('read-result', 'Error: ' + (data.error || 'Failed to read'), 'error');
         }
       } catch (e) {
-        const errorMsg = e.message.includes('Failed to fetch')
-          ? 'Connection error. Check API URL and CORS settings.'
-          : e.message;
-        showResult('read-result', 'Error: ' + errorMsg, 'error');
+        showResult('read-result', 'Error: ' + e.message, 'error');
       }
     }
 
     function showResult(elementId, message, type) {
-      const typeClass = type === 'success' ? 'success' : 'error';
-      document.getElementById(elementId).innerHTML = `
-        <div class="result ${typeClass}">
-          <pre>${escapeHtml(message)}</pre>
-        </div>
-      `;
+      const resultDiv = document.getElementById(elementId);
+      resultDiv.innerHTML = `<div class="result ${type}"><h3>${type === 'error' ? '⚠' : '✓'}</h3>${message}</div>`;
     }
 
     function copyToClipboard(text) {
       navigator.clipboard.writeText(text).then(() => {
-        event.target.textContent = '✓ Copied';
-        setTimeout(() => {
-          event.target.textContent = 'Copy';
-        }, 2000);
+        alert('Copied to clipboard!');
       });
     }
 
     function escapeHtml(text) {
-      const div = document.createElement('div');
-      div.textContent = text;
-      return div.innerHTML;
+      const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
+      return text.replace(/[&<>"']/g, m => map[m]);
     }
   </script>
 </body>
