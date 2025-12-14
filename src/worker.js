@@ -1,7 +1,21 @@
-import { generateShortcode } from './index.js';
 import NostrRelayAdapter from './adapters/nostr-relay.js';
 
 const adapter = new NostrRelayAdapter();
+
+/**
+ * Generate shortcode from password using Web Crypto API (Cloudflare Workers compatible)
+ * Must match the client-side implementation in public/index.html
+ */
+async function generateShortcode(password) {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(password);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+
+  // Convert to base64 for shortcode
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  const base64 = btoa(String.fromCharCode(...hashArray));
+  return base64.substring(0, 16);
+}
 
 async function handleRequest(request, env, ctx) {
   const url = new URL(request.url);
@@ -29,7 +43,7 @@ async function handleRequest(request, env, ctx) {
         });
       }
 
-      const shortcode = generateShortcode(password);
+      const shortcode = await generateShortcode(password);
 
       return new Response(JSON.stringify({
         shortcode,
@@ -86,7 +100,7 @@ async function handleRequest(request, env, ctx) {
         });
       }
 
-      const shortcode = generateShortcode(password);
+      const shortcode = await generateShortcode(password);
       const messages = await adapter.readMessages(password);
 
       return new Response(JSON.stringify({

@@ -11,7 +11,6 @@
  * - wss://relay.nostr.band
  */
 
-import crypto from 'crypto';
 import { SimplePool, nip19, generateSecretKey, getPublicKey, finalizeEvent } from 'nostr-tools';
 
 const DEFAULT_RELAYS = [
@@ -37,16 +36,16 @@ class NostrRelayAdapter {
    * Derive deterministic Nostr keypair from talkbox password
    * Same password always produces same keypair
    */
-  deriveNostrKeys(password) {
+  async deriveNostrKeys(password) {
     if (this.keyCache.has(password)) {
       return this.keyCache.get(password);
     }
 
     // Use SHA256(password + salt) as seed for consistent keys
-    const seed = crypto
-      .createHash('sha256')
-      .update(password + 'talkbox-nostr-derivation')
-      .digest();
+    const encoder = new TextEncoder();
+    const data = encoder.encode(password + 'talkbox-nostr-derivation');
+    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+    const seed = new Uint8Array(hashBuffer);
 
     // Generate Nostr secret key from seed
     // Use first 32 bytes of seed as secret key
@@ -109,7 +108,7 @@ class NostrRelayAdapter {
       throw new Error('Not connected. Call connect() first.');
     }
 
-    const { secretKey, publicKey } = this.deriveNostrKeys(password);
+    const { secretKey, publicKey } = await this.deriveNostrKeys(password);
 
     // Create Nostr event
     // Messages are posted AS IF from the public key derived from the password
@@ -170,7 +169,7 @@ class NostrRelayAdapter {
       throw new Error('Not connected. Call connect() first.');
     }
 
-    const { publicKey } = this.deriveNostrKeys(password);
+    const { publicKey } = await this.deriveNostrKeys(password);
     console.log(`\n📥 Querying relays for messages...`);
 
     // Filter events by pubkey (which all relays support)
@@ -215,7 +214,7 @@ class NostrRelayAdapter {
       throw new Error('Not connected. Call connect() first.');
     }
 
-    const { publicKey } = this.deriveNostrKeys(password);
+    const { publicKey } = await this.deriveNostrKeys(password);
     console.log(`\n📻 Subscribing to real-time messages...`);
 
     const filter = {

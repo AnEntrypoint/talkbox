@@ -102,8 +102,8 @@
     if (params.has('api')) {
       API_URL = params.get('api');
     } else if (window.location.hostname.includes('github.io')) {
-      // For GitHub Pages, try environment variable or fall back to default
-      API_URL = window.TALKBOX_API_URL || 'https://talkbox.YOUR_ACCOUNT_ID.workers.dev';
+      // For GitHub Pages, use Cloudflare Workers
+      API_URL = 'https://talkbox.almagestfraternite.workers.dev';
     } else if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
       // For localhost development
       API_URL = 'http://localhost:8000';
