@@ -36,7 +36,7 @@ async function handleRequest(request, env, ctx) {
         message: `Share this code: ${shortcode}. Keep your password secret!`,
         note: 'Password is needed when sending messages - share only the shortcode with message senders',
         apiEndpoints: {
-          send: 'POST /send with { shortcode, password, message }',
+          send: 'POST /send with { shortcode, message }',
           read: `GET /read?password=${password}`,
           status: 'GET /status'
         }
@@ -48,16 +48,16 @@ async function handleRequest(request, env, ctx) {
 
     if (path === '/send' && request.method === 'POST') {
       const body = await request.json();
-      const { shortcode, password, message } = body;
+      const { shortcode, message } = body;
 
-      if (!shortcode || !password || !message) {
-        return new Response(JSON.stringify({ error: 'Missing shortcode, password, or message' }), {
+      if (!shortcode || !message) {
+        return new Response(JSON.stringify({ error: 'Missing shortcode or message' }), {
           status: 400,
           headers: { ...headers, 'Content-Type': 'application/json' }
         });
       }
 
-      const result = await adapter.publishMessage(password, message);
+      const result = await adapter.publishMessage(shortcode, message);
 
       const msgKey = `${shortcode}:${result.eventId}`;
       await env.MESSAGES.put(msgKey, JSON.stringify({
