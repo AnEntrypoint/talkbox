@@ -30,7 +30,8 @@
   "dependencies": {
     "keypear": "^1.2.2",
     "nostr-tools": "^2.19.3",
-    "tweetnacl": "^1.0.3"
+    "tweetnacl": "^1.0.3",
+    "tweetnacl-util": "^0.15.1"
   },
   "devDependencies": {
     "@playwright/test": "^1.57.0"

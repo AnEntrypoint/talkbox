@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Talkbox - Secure Message Exchange</title>
+  <script src="https://cdn.jsdelivr.net/npm/tweetnacl@1.0.3/nacl-fast.min.js"></script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f8f8f8; min-height: 100vh; padding: 20px; }
@@ -30,7 +31,7 @@
     .result.success { border-left-color: #28a745; background: #d4edda; color: #155724; }
     .result.error { border-left-color: #dc3545; background: #f8d7da; color: #721c24; }
     .result h3 { font-size: 15px; margin-bottom: 8px; font-weight: 600; }
-    .shortcode-display { font-family: monospace; font-size: 18px; font-weight: bold; color: #007bff; padding: 12px; background: #f0f8ff; border-radius: 4px; word-break: break-all; margin: 12px 0; text-align: center; }
+    .shortcode-display { font-family: monospace; font-size: 16px; font-weight: bold; color: #007bff; padding: 12px; background: #f0f8ff; border-radius: 4px; word-break: break-all; margin: 12px 0; text-align: center; }
     .message-item { background: #f9f9f9; padding: 12px; margin-bottom: 12px; border-radius: 4px; border-left: 3px solid #007bff; }
     .message-text { color: #333; font-size: 14px; word-break: break-word; margin-bottom: 6px; }
     .message-time { color: #999; font-size: 12px; }
@@ -53,13 +54,12 @@
     <!-- Generate Tab -->
     <div id="generate" class="tab-content active">
       <div class="info">
-        <strong>Step 1:</strong> Create a password. Your shortcode is derived from it (client-side only).
+        <strong>Step 1:</strong> Create a password. Your shortcode is derived from it instantly (100% client-side, no server interaction).
       </div>
       <div class="form-group">
         <label for="gen-password">Your Password</label>
-        <input type="password" id="gen-password" placeholder="Make it strong">
+        <input type="password" id="gen-password" placeholder="Make it strong" onkeyup="liveGenerateShortcode()">
       </div>
-      <button onclick="generateShortcode()">Generate Shortcode</button>
       <div id="gen-result"></div>
     </div>
 
@@ -87,7 +87,7 @@
       </div>
       <div class="form-group">
         <label for="read-password">Your Password</label>
-        <input type="password" id="read-password" placeholder="Your password">
+        <input type="password" id="read-password" placeholder="Your password" onkeyup="liveShowShortcode()">
       </div>
       <button onclick="readMessages()">Read Messages</button>
       <div id="read-result"></div>
@@ -112,27 +112,45 @@
       event.target.classList.add('active');
     }
 
-    async function generateShortcode() {
+    async function deriveKeypair(password) {
+      const encoder = new TextEncoder();
+      const data = encoder.encode(password);
+      const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+      const seed = new Uint8Array(hashBuffer);
+      const keypair = nacl.box.keyPair.fromSecretKey(seed.slice(0, 32));
+      return keypair;
+    }
+
+    async function generateShortcodeFromPassword(password) {
+      if (!password) return '';
+      const keypair = await deriveKeypair(password);
+      const publicKeyBase64 = btoa(String.fromCharCode(...keypair.publicKey));
+      return publicKeyBase64.substring(0, 16);
+    }
+
+    async function liveGenerateShortcode() {
       const password = document.getElementById('gen-password').value;
       if (!password) {
-        showResult('gen-result', 'Please enter a password', 'error');
+        document.getElementById('gen-result').innerHTML = '';
         return;
       }
-      try {
-        const response = await fetch(`${API_URL}/generate?password=${encodeURIComponent(password)}`);
-        const data = await response.json();
-        const html = `
-          <div class="result success">
-            <h3>✓ Your Shortcode</h3>
-            <div class="shortcode-display">${data.shortcode}</div>
-            <button class="small" onclick="copyToClipboard('${data.shortcode}')">Copy</button>
-            <span style="color: #666; font-size: 13px; margin-left: 8px;">Share this with others</span>
-          </div>
-        `;
-        document.getElementById('gen-result').innerHTML = html;
-      } catch (e) {
-        showResult('gen-result', 'Error: ' + e.message, 'error');
-      }
+      const shortcode = await generateShortcodeFromPassword(password);
+      const html = `
+        <div class="result success">
+          <h3>✓ Your Shortcode (Generated Instantly)</h3>
+          <div class="shortcode-display">${shortcode}</div>
+          <button class="small" onclick="copyToClipboard('${shortcode}')">Copy</button>
+          <span style="color: #666; font-size: 13px; margin-left: 8px;">Share this with others</span>
+        </div>
+      `;
+      document.getElementById('gen-result').innerHTML = html;
+    }
+
+    async function liveShowShortcode() {
+      const password = document.getElementById('read-password').value;
+      if (!password) return;
+      const shortcode = await generateShortcodeFromPassword(password);
+      console.log('Your shortcode:', shortcode);
     }
 
     async function sendMessage() {
@@ -167,11 +185,12 @@
         return;
       }
       try {
+        const shortcode = await generateShortcodeFromPassword(password);
         const response = await fetch(`${API_URL}/read?password=${encodeURIComponent(password)}`);
         const data = await response.json();
         if (data.success) {
           if (data.messages.length === 0) {
-            showResult('read-result', `<h3>No messages yet</h3>Share your shortcode: <div class="shortcode-display">${data.shortcode}</div>`, 'success');
+            showResult('read-result', `<h3>No messages yet</h3>Your shortcode to share: <div class="shortcode-display">${shortcode}</div>`, 'success');
           } else {
             let html = `<h3>📨 Messages (${data.messages.length})</h3>`;
             data.messages.forEach(msg => {
