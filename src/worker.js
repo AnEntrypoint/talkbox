@@ -2,7 +2,6 @@ import { generateShortcode } from './index.js';
 import NostrRelayAdapter from './adapters/nostr-relay.js';
 
 const adapter = new NostrRelayAdapter();
-let connected = false;
 
 async function handleRequest(request, env, ctx) {
   const url = new URL(request.url);
@@ -19,10 +18,7 @@ async function handleRequest(request, env, ctx) {
   }
 
   try {
-    if (!connected) {
-      await adapter.connect();
-      connected = true;
-    }
+    await adapter.connect();
 
     if (path === '/generate' && request.method === 'GET') {
       const password = url.searchParams.get('password');
