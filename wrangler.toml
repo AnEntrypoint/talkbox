@@ -1,33 +1,17 @@
 name = "talkbox"
 main = "src/worker.js"
-type = "service"
 compatibility_date = "2025-12-14"
-
-[env.production]
-name = "talkbox-prod"
-route = "talkbox-prod.workers.dev"
+compatibility_flags = ["nodejs_compat"]
 
 [[kv_namespaces]]
 binding = "MESSAGES"
-id = "talkbox-messages"
-preview_id = "talkbox-messages-preview"
+id = "be7e1a976634455ba902e8aefe921529"
+preview_id = "be7e1a976634455ba902e8aefe921529"
 
 [[kv_namespaces]]
 binding = "SHORTCODES"
-id = "talkbox-shortcodes"
-preview_id = "talkbox-shortcodes-preview"
-
-[build]
-command = "npm run build"
-cwd = "."
-
-[env.production.build]
-command = "npm run build"
-cwd = "."
-
-[build.upload]
-format = "modules"
-main = "./src/worker.js"
+id = "0f47c9fefb32414f95d5d7ec89a947bd"
+preview_id = "0f47c9fefb32414f95d5d7ec89a947bd"
 
 [limits]
 cpu_ms = 50

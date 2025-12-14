@@ -139,15 +139,7 @@ const server = http.createServer(async (req, res) => {
 
       try {
         const shortcode = generateShortcode(password);
-        let messages;
-
-        if (adapterType === 'nostr') {
-          // For Nostr: would need async subscription
-          messages = [{ message: '(Nostr subscription returns streaming events)', timestamp: Date.now() }];
-        } else {
-          // For IPFS: load from database
-          messages = await adapter.readMessages(shortcode);
-        }
+        const messages = await adapter.readMessages(password);
 
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({
