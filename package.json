@@ -1,0 +1,31 @@
+{
+  "name": "talkbox",
+  "version": "0.1.0",
+  "description": "Minimal cryptographic system for sharing messages via shortcodes",
+  "main": "src/index.js",
+  "type": "module",
+  "keywords": [
+    "crypto",
+    "encryption",
+    "shortcode",
+    "messaging"
+  ],
+  "scripts": {
+    "test": "node test.js",
+    "example": "node examples/basic.js",
+    "examples:advanced": "node examples/advanced.js",
+    "demo:nostr": "node cli-test-nostr.js",
+    "demo:e2e": "node demo-nostr-e2e.js",
+    "demo:persistent": "node demo-nostr-persistent.js",
+    "server:nostr": "node server.js --adapter nostr",
+    "server:ipfs": "node server.js --adapter ipfs"
+  },
+  "author": "",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "nostr-tools": "^2.19.3"
+  }
+}
