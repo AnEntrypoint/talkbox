@@ -1,126 +1,52 @@
 import crypto from 'crypto';
+import keypear from 'keypear';
+import nacl from 'tweetnacl';
 
-// In-memory stores - can be extended to use DB/localStorage
-const messageStore = new Map();
-const shortcodeMap = new Map(); // shortcode → password mapping
+nacl.util = nacl.util || {};
+nacl.util.encodeBase64 = (arr) => Buffer.from(arr).toString('base64');
+nacl.util.decodeBase64 = (str) => new Uint8Array(Buffer.from(str, 'base64'));
 
-/**
- * Generate a shortcode from a password
- * Same password always produces the same shortcode
- * Stores the mapping internally for message encryption
- */
+export function deriveKeypair(password) {
+  const seed = crypto.createHash('sha256').update(password).digest();
+  const kp = keypear(seed);
+  return {
+    publicKey: Buffer.from(kp.publicKey),
+    secretKey: Buffer.from(kp.secretKey)
+  };
+}
+
 export function generateShortcode(password) {
-  const hash = crypto
-    .createHash('sha256')
-    .update(password)
-    .digest('hex')
-    .substring(0, 12);
-
-  // Store the mapping so sendMessage can look it up
-  shortcodeMap.set(hash, password);
-  return hash;
+  const { publicKey } = deriveKeypair(password);
+  return publicKey.toString('base64').substring(0, 16);
 }
 
-/**
- * Derive encryption key from password using PBKDF2
- */
-function deriveKey(password) {
-  return crypto.pbkdf2Sync(
-    password,
-    'talkbox-salt', // Static salt for simplicity, could be randomized
-    100000,
-    32,
-    'sha256'
-  );
+export function encryptMessage(publicKeyBase64, message) {
+  const publicKey = new Uint8Array(Buffer.from(publicKeyBase64, 'base64'));
+  const nonce = nacl.randomBytes(24);
+  const msgBytes = Buffer.from(message, 'utf8');
+
+  const ephemeralKeypair = nacl.box.keyPair();
+  const ciphertext = nacl.box(msgBytes, nonce, publicKey, ephemeralKeypair.secretKey);
+
+  return {
+    nonce: Buffer.from(nonce).toString('base64'),
+    ciphertext: Buffer.from(ciphertext).toString('base64'),
+    ephemeralPublicKey: Buffer.from(ephemeralKeypair.publicKey).toString('base64')
+  };
 }
 
-/**
- * Send an encrypted message using a shortcode
- * Returns message ID for retrieval
- */
-export function sendMessage(shortcode, message) {
-  const password = shortcodeMap.get(shortcode);
-  if (!password) {
-    throw new Error(`Invalid shortcode: ${shortcode}`);
+export function decryptMessage(encryptedData, secretKeyBase64) {
+  try {
+    const secretKey = new Uint8Array(Buffer.from(secretKeyBase64, 'base64'));
+    const nonce = new Uint8Array(Buffer.from(encryptedData.nonce, 'base64'));
+    const ciphertext = new Uint8Array(Buffer.from(encryptedData.ciphertext, 'base64'));
+    const ephemeralPublicKey = new Uint8Array(Buffer.from(encryptedData.ephemeralPublicKey, 'base64'));
+
+    const decrypted = nacl.box.open(ciphertext, nonce, ephemeralPublicKey, secretKey);
+    if (!decrypted) return null;
+
+    return Buffer.from(decrypted).toString('utf8');
+  } catch (e) {
+    return null;
   }
-
-  const key = deriveKey(password);
-  const iv = crypto.randomBytes(16);
-  const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
-
-  let encrypted = cipher.update(message, 'utf8', 'hex');
-  encrypted += cipher.final('hex');
-  const authTag = cipher.getAuthTag();
-
-  const messageId = crypto.randomUUID();
-  messageStore.set(messageId, {
-    iv: iv.toString('hex'),
-    encrypted,
-    authTag: authTag.toString('hex'),
-    timestamp: Date.now()
-  });
-
-  return messageId;
-}
-
-/**
- * Read all messages that can be decrypted with the given password
- * Returns array of {messageId, message, timestamp}
- */
-export function readMessages(password) {
-  const key = deriveKey(password);
-  const messages = [];
-
-  for (const [messageId, data] of messageStore) {
-    try {
-      const decipher = crypto.createDecipheriv(
-        'aes-256-gcm',
-        key,
-        Buffer.from(data.iv, 'hex')
-      );
-      decipher.setAuthTag(Buffer.from(data.authTag, 'hex'));
-
-      let decrypted = decipher.update(data.encrypted, 'hex', 'utf8');
-      decrypted += decipher.final('utf8');
-
-      messages.push({
-        messageId,
-        message: decrypted,
-        timestamp: data.timestamp
-      });
-    } catch (e) {
-      // Wrong password or tampered message, skip
-    }
-  }
-
-  return messages;
-}
-
-/**
- * Delete a message by ID
- */
-export function deleteMessage(messageId) {
-  return messageStore.delete(messageId);
-}
-
-/**
- * Get all message IDs (for debugging/management)
- */
-export function getAllMessageIds() {
-  return Array.from(messageStore.keys());
-}
-
-/**
- * Clear all messages (but keep shortcode mappings)
- */
-export function clearMessages() {
-  messageStore.clear();
-}
-
-/**
- * Reset everything (messages and shortcodes)
- */
-export function reset() {
-  messageStore.clear();
-  shortcodeMap.clear();
 }

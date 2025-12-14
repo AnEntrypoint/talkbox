@@ -5,239 +5,43 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Talkbox - Secure Message Exchange</title>
   <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
-
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      background: #f8f8f8;
-      min-height: 100vh;
-      padding: 20px;
-    }
-
-    .container {
-      max-width: 600px;
-      margin: 0 auto;
-      background: white;
-      border-radius: 8px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-      padding: 30px;
-    }
-
-    .header {
-      margin-bottom: 30px;
-      border-bottom: 2px solid #007bff;
-      padding-bottom: 20px;
-    }
-
-    .header h1 {
-      font-size: 32px;
-      color: #333;
-      margin-bottom: 8px;
-    }
-
-    .header p {
-      color: #666;
-      font-size: 15px;
-      line-height: 1.6;
-    }
-
-    .tabs {
-      display: flex;
-      gap: 5px;
-      margin-bottom: 30px;
-      border-bottom: 2px solid #ddd;
-    }
-
-    .tab {
-      padding: 12px 20px;
-      border: none;
-      background: none;
-      cursor: pointer;
-      font-size: 15px;
-      font-weight: 500;
-      color: #666;
-      border-bottom: 3px solid transparent;
-      margin-bottom: -2px;
-      transition: all 0.15s;
-    }
-
-    .tab:hover {
-      color: #007bff;
-    }
-
-    .tab.active {
-      color: #007bff;
-      border-color: #007bff;
-    }
-
-    .tab-content {
-      display: none;
-    }
-
-    .tab-content.active {
-      display: block;
-    }
-
-    .form-group {
-      margin-bottom: 20px;
-    }
-
-    label {
-      display: block;
-      font-size: 14px;
-      font-weight: 600;
-      color: #333;
-      margin-bottom: 6px;
-    }
-
-    input[type="text"],
-    input[type="password"],
-    textarea {
-      width: 100%;
-      padding: 10px 12px;
-      border: 1px solid #ddd;
-      border-radius: 4px;
-      font-size: 14px;
-      font-family: monospace;
-      transition: border-color 0.15s;
-    }
-
-    input[type="text"]:focus,
-    input[type="password"]:focus,
-    textarea:focus {
-      outline: none;
-      border-color: #007bff;
-      box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.1);
-    }
-
-    textarea {
-      resize: vertical;
-      min-height: 80px;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-    }
-
-    button {
-      width: 100%;
-      padding: 12px;
-      background: #007bff;
-      color: white;
-      border: none;
-      border-radius: 4px;
-      font-size: 15px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: background 0.15s;
-    }
-
-    button:hover {
-      background: #0056b3;
-    }
-
-    button:active {
-      background: #004085;
-    }
-
-    button.small {
-      width: auto;
-      padding: 6px 12px;
-      font-size: 12px;
-      margin-left: 8px;
-      display: inline-block;
-    }
-
-    .result {
-      padding: 16px;
-      border-radius: 4px;
-      margin-top: 20px;
-      font-size: 14px;
-      border-left: 4px solid #007bff;
-      background: #e7f3ff;
-    }
-
-    .result.success {
-      border-left-color: #28a745;
-      background: #d4edda;
-      color: #155724;
-    }
-
-    .result.error {
-      border-left-color: #dc3545;
-      background: #f8d7da;
-      color: #721c24;
-    }
-
-    .result h3 {
-      font-size: 15px;
-      margin-bottom: 8px;
-      font-weight: 600;
-    }
-
-    .shortcode-display {
-      font-family: monospace;
-      font-size: 18px;
-      font-weight: bold;
-      color: #007bff;
-      padding: 12px;
-      background: #f0f8ff;
-      border-radius: 4px;
-      word-break: break-all;
-      margin: 12px 0;
-      text-align: center;
-    }
-
-    .message-item {
-      background: #f9f9f9;
-      padding: 12px;
-      margin-bottom: 12px;
-      border-radius: 4px;
-      border-left: 3px solid #007bff;
-    }
-
-    .message-text {
-      color: #333;
-      font-size: 14px;
-      word-break: break-word;
-      margin-bottom: 6px;
-    }
-
-    .message-time {
-      color: #999;
-      font-size: 12px;
-    }
-
-    .info {
-      background: #e3f2fd;
-      color: #1565c0;
-      padding: 12px;
-      border-radius: 4px;
-      margin-bottom: 20px;
-      font-size: 14px;
-      line-height: 1.5;
-    }
-
-    .copy-container {
-      display: flex;
-      gap: 8px;
-      align-items: center;
-      margin: 12px 0;
-    }
-
-    .flex-row {
-      display: flex;
-      gap: 10px;
-      align-items: center;
-    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f8f8f8; min-height: 100vh; padding: 20px; }
+    .container { max-width: 600px; margin: 0 auto; background: white; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); padding: 30px; }
+    .header { margin-bottom: 30px; border-bottom: 2px solid #007bff; padding-bottom: 20px; }
+    .header h1 { font-size: 32px; color: #333; margin-bottom: 8px; }
+    .header p { color: #666; font-size: 15px; line-height: 1.6; }
+    .tabs { display: flex; gap: 5px; margin-bottom: 30px; border-bottom: 2px solid #ddd; }
+    .tab { padding: 12px 20px; border: none; background: none; cursor: pointer; font-size: 15px; font-weight: 500; color: #666; border-bottom: 3px solid transparent; margin-bottom: -2px; transition: all 0.15s; }
+    .tab:hover { color: #007bff; }
+    .tab.active { color: #007bff; border-color: #007bff; }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+    .form-group { margin-bottom: 20px; }
+    label { display: block; font-size: 14px; font-weight: 600; color: #333; margin-bottom: 6px; }
+    input[type="text"], input[type="password"], textarea { width: 100%; padding: 10px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; font-family: monospace; transition: border-color 0.15s; }
+    input[type="text"]:focus, input[type="password"]:focus, textarea:focus { outline: none; border-color: #007bff; box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.1); }
+    textarea { resize: vertical; min-height: 80px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+    button { width: 100%; padding: 12px; background: #007bff; color: white; border: none; border-radius: 4px; font-size: 15px; font-weight: 600; cursor: pointer; transition: background 0.15s; }
+    button:hover { background: #0056b3; }
+    button:active { background: #004085; }
+    button.small { width: auto; padding: 6px 12px; font-size: 12px; margin-left: 8px; display: inline-block; }
+    .result { padding: 16px; border-radius: 4px; margin-top: 20px; font-size: 14px; border-left: 4px solid #007bff; background: #e7f3ff; }
+    .result.success { border-left-color: #28a745; background: #d4edda; color: #155724; }
+    .result.error { border-left-color: #dc3545; background: #f8d7da; color: #721c24; }
+    .result h3 { font-size: 15px; margin-bottom: 8px; font-weight: 600; }
+    .shortcode-display { font-family: monospace; font-size: 18px; font-weight: bold; color: #007bff; padding: 12px; background: #f0f8ff; border-radius: 4px; word-break: break-all; margin: 12px 0; text-align: center; }
+    .message-item { background: #f9f9f9; padding: 12px; margin-bottom: 12px; border-radius: 4px; border-left: 3px solid #007bff; }
+    .message-text { color: #333; font-size: 14px; word-break: break-word; margin-bottom: 6px; }
+    .message-time { color: #999; font-size: 12px; }
+    .info { background: #e3f2fd; color: #1565c0; padding: 12px; border-radius: 4px; margin-bottom: 20px; font-size: 14px; line-height: 1.5; }
   </style>
 </head>
 <body>
   <div class="container">
     <div class="header">
       <h1>Talkbox</h1>
-      <p>Send encrypted messages with just a password. No accounts, no registration.</p>
+      <p>Send encrypted messages using public key cryptography. Only the recipient can read messages.</p>
     </div>
 
     <div class="tabs">
@@ -249,14 +53,12 @@
     <!-- Generate Tab -->
     <div id="generate" class="tab-content active">
       <div class="info">
-        <strong>Step 1:</strong> Create a password. This generates your unique shortcode (no server interaction).
+        <strong>Step 1:</strong> Create a password. Your shortcode is derived from it (client-side only).
       </div>
-
       <div class="form-group">
         <label for="gen-password">Your Password</label>
-        <input type="password" id="gen-password" placeholder="Make it strong" value="my-secret">
+        <input type="password" id="gen-password" placeholder="Make it strong">
       </div>
-
       <button onclick="generateShortcode()">Generate Shortcode</button>
       <div id="gen-result"></div>
     </div>
@@ -264,19 +66,16 @@
     <!-- Send Tab -->
     <div id="send" class="tab-content">
       <div class="info">
-        <strong>Step 2:</strong> Someone gives you their password. Send them an encrypted message.
+        <strong>Step 2:</strong> Someone shares their shortcode. Send them an encrypted message (only they can read it with their password).
       </div>
-
       <div class="form-group">
-        <label for="send-password">Their Password</label>
-        <input type="password" id="send-password" placeholder="The password they shared">
+        <label for="send-shortcode">Their Shortcode</label>
+        <input type="text" id="send-shortcode" placeholder="Paste the shortcode they shared">
       </div>
-
       <div class="form-group">
         <label for="send-message">Your Message</label>
         <textarea id="send-message" placeholder="What do you want to say?"></textarea>
       </div>
-
       <button onclick="sendMessage()">Send Message</button>
       <div id="send-result"></div>
     </div>
@@ -286,12 +85,10 @@
       <div class="info">
         <strong>Step 3:</strong> Enter your password to read all messages sent to you.
       </div>
-
       <div class="form-group">
         <label for="read-password">Your Password</label>
-        <input type="password" id="read-password" placeholder="Your password" value="my-secret">
+        <input type="password" id="read-password" placeholder="Your password">
       </div>
-
       <button onclick="readMessages()">Read Messages</button>
       <div id="read-result"></div>
     </div>
@@ -315,14 +112,6 @@
       event.target.classList.add('active');
     }
 
-    async function hashPassword(password) {
-      const encoder = new TextEncoder();
-      const data = encoder.encode(password);
-      const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-      const hashArray = Array.from(new Uint8Array(hashBuffer));
-      return hashArray.map(b => b.toString(16).padStart(2, '0')).join('').substring(0, 12);
-    }
-
     async function generateShortcode() {
       const password = document.getElementById('gen-password').value;
       if (!password) {
@@ -330,15 +119,14 @@
         return;
       }
       try {
-        const shortcode = await hashPassword(password);
+        const response = await fetch(`${API_URL}/generate?password=${encodeURIComponent(password)}`);
+        const data = await response.json();
         const html = `
           <div class="result success">
             <h3>✓ Your Shortcode</h3>
-            <div class="shortcode-display">${shortcode}</div>
-            <div class="copy-container">
-              <button class="small" onclick="copyToClipboard('${shortcode}')">Copy Shortcode</button>
-              <span style="color: #666; font-size: 13px;">Share this with others to send you messages</span>
-            </div>
+            <div class="shortcode-display">${data.shortcode}</div>
+            <button class="small" onclick="copyToClipboard('${data.shortcode}')">Copy</button>
+            <span style="color: #666; font-size: 13px; margin-left: 8px;">Share this with others</span>
           </div>
         `;
         document.getElementById('gen-result').innerHTML = html;
@@ -348,18 +136,17 @@
     }
 
     async function sendMessage() {
-      const password = document.getElementById('send-password').value;
+      const shortcode = document.getElementById('send-shortcode').value;
       const message = document.getElementById('send-message').value;
-      if (!password || !message) {
-        showResult('send-result', 'Please enter password and message', 'error');
+      if (!shortcode || !message) {
+        showResult('send-result', 'Please enter shortcode and message', 'error');
         return;
       }
       try {
-        const shortcode = await hashPassword(password);
         const response = await fetch(`${API_URL}/send`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ shortcode, password, message })
+          body: JSON.stringify({ shortcode, message })
         });
         const data = await response.json();
         if (data.success) {
@@ -384,8 +171,7 @@
         const data = await response.json();
         if (data.success) {
           if (data.messages.length === 0) {
-            const shortcode = await hashPassword(password);
-            showResult('read-result', `<h3>No messages yet</h3>Share your shortcode: <div class="shortcode-display">${shortcode}</div>`, 'success');
+            showResult('read-result', `<h3>No messages yet</h3>Share your shortcode: <div class="shortcode-display">${data.shortcode}</div>`, 'success');
           } else {
             let html = `<h3>📨 Messages (${data.messages.length})</h3>`;
             data.messages.forEach(msg => {
@@ -409,7 +195,7 @@
 
     function copyToClipboard(text) {
       navigator.clipboard.writeText(text).then(() => {
-        alert('Copied to clipboard!');
+        alert('Copied!');
       });
     }
 
