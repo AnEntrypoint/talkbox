@@ -281,15 +281,15 @@
     <!-- Send Tab -->
     <div id="send" class="tab-content">
       <div class="info-box">
-        Share the shortcode to let others send you messages. They won't need your password.
+        Enter the password to send a message (the shortcode is derived client-side).
       </div>
 
       <div class="form-group">
-        <label for="send-code">Shortcode</label>
+        <label for="send-password">Receiver's Password</label>
         <input
-          type="text"
-          id="send-code"
-          placeholder="Paste the shortcode here"
+          type="password"
+          id="send-password"
+          placeholder="Enter receiver's password"
         >
       </div>
 
@@ -365,6 +365,15 @@
       event.target.classList.add('active');
     }
 
+    async function hashPassword(password) {
+      const encoder = new TextEncoder();
+      const data = encoder.encode(password);
+      const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+      return hashHex.substring(0, 12);
+    }
+
     async function generateShortcode() {
       const password = document.getElementById('gen-password').value;
       if (!password) {
@@ -373,27 +382,15 @@
       }
 
       try {
-        const response = await fetch(`${API_URL}/generate?password=${encodeURIComponent(password)}`, {
-          method: 'GET',
-          headers: {
-            'Accept': 'application/json'
-          },
-          credentials: 'omit'
-        });
-
-        if (!response.ok) {
-          throw new Error(`Server error: ${response.status} ${response.statusText}`);
-        }
-
-        const data = await response.json();
+        const shortcode = await hashPassword(password);
 
         const html = `
           <div class="result success">
-            <h3>✓ Shortcode Generated</h3>
+            <h3>✓ Shortcode Generated (Client-Side)</h3>
             <p style="margin-bottom: 12px;">Share this code with others:</p>
             <div style="display: flex; align-items: center; margin-bottom: 12px;">
-              <div class="shortcode">${data.shortcode}</div>
-              <button class="copy-button" onclick="copyToClipboard('${data.shortcode}')">Copy</button>
+              <div class="shortcode">${shortcode}</div>
+              <button class="copy-button" onclick="copyToClipboard('${shortcode}')">Copy</button>
             </div>
             <p style="font-size: 12px; color: #666; margin-top: 12px;">
               🔐 Keep your password secret. Only you can read messages.
@@ -402,27 +399,26 @@
         `;
         document.getElementById('gen-result').innerHTML = html;
       } catch (e) {
-        const errorMsg = e.message.includes('Failed to fetch')
-          ? 'Connection error. Check API URL and CORS settings.'
-          : e.message;
-        showResult('gen-result', 'Error: ' + errorMsg, 'error');
+        showResult('gen-result', 'Error: ' + e.message, 'error');
       }
     }
 
     async function sendMessage() {
-      const shortcode = document.getElementById('send-code').value;
+      const password = document.getElementById('send-password').value;
       const message = document.getElementById('send-message').value;
 
-      if (!shortcode || !message) {
-        showResult('send-result', 'Please enter shortcode and message', 'error');
+      if (!password || !message) {
+        showResult('send-result', 'Please enter password and message', 'error');
         return;
       }
 
       try {
+        const shortcode = await hashPassword(password);
+
         const response = await fetch(`${API_URL}/send`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ shortcode, message }),
+          body: JSON.stringify({ shortcode, password, message }),
           credentials: 'omit'
         });
 
