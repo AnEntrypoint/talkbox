@@ -30,15 +30,15 @@ async function handleRequest(request, env, ctx) {
       }
 
       const shortcode = generateShortcode(password);
-      await env.SHORTCODES.put(shortcode, password, { expirationTtl: 2592000 });
 
       return new Response(JSON.stringify({
         shortcode,
         message: `Share this code: ${shortcode}. Keep your password secret!`,
+        note: 'Password is needed when sending messages - share only the shortcode with message senders',
         apiEndpoints: {
-          send: `/send?code=${shortcode}&message=hello`,
-          read: `/read?password=${password}`,
-          status: '/status'
+          send: 'POST /send with { shortcode, password, message }',
+          read: `GET /read?password=${password}`,
+          status: 'GET /status'
         }
       }), {
         status: 200,
@@ -48,18 +48,10 @@ async function handleRequest(request, env, ctx) {
 
     if (path === '/send' && request.method === 'POST') {
       const body = await request.json();
-      const { shortcode, message } = body;
+      const { shortcode, password, message } = body;
 
-      if (!shortcode || !message) {
-        return new Response(JSON.stringify({ error: 'Missing shortcode or message' }), {
-          status: 400,
-          headers: { ...headers, 'Content-Type': 'application/json' }
-        });
-      }
-
-      const password = await env.SHORTCODES.get(shortcode);
-      if (!password) {
-        return new Response(JSON.stringify({ error: 'Invalid shortcode' }), {
+      if (!shortcode || !password || !message) {
+        return new Response(JSON.stringify({ error: 'Missing shortcode, password, or message' }), {
           status: 400,
           headers: { ...headers, 'Content-Type': 'application/json' }
         });

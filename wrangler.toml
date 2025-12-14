@@ -12,6 +12,3 @@ preview_id = "be7e1a976634455ba902e8aefe921529"
 binding = "SHORTCODES"
 id = "0f47c9fefb32414f95d5d7ec89a947bd"
 preview_id = "0f47c9fefb32414f95d5d7ec89a947bd"
-
-[limits]
-cpu_ms = 50

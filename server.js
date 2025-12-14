@@ -71,10 +71,11 @@ const server = http.createServer(async (req, res) => {
       res.end(JSON.stringify({
         shortcode,
         message: `Share this code: ${shortcode}. Keep your password secret!`,
+        note: 'Password is needed when sending messages - share only the shortcode with message senders',
         apiEndpoints: {
-          send: `/send?code=${shortcode}&message=hello`,
-          read: `/read?password=${password}`,
-          status: '/status'
+          send: 'POST /send with { shortcode, password, message }',
+          read: `GET /read?password=${password}`,
+          status: 'GET /status'
         }
       }));
       return;
@@ -89,7 +90,7 @@ const server = http.createServer(async (req, res) => {
 
       req.on('end', async () => {
         try {
-          const { shortcode, message } = JSON.parse(body);
+          const { shortcode, password, message } = JSON.parse(body);
 
           if (!shortcode || !message) {
             res.writeHead(400, { 'Content-Type': 'application/json' });
@@ -99,8 +100,13 @@ const server = http.createServer(async (req, res) => {
 
           // For Nostr: publish to relays
           if (adapterType === 'nostr') {
-            const password = shortcodeRegistry.get(shortcode);
-            const result = await adapter.publishMessage(password || shortcode, message);
+            const pwd = password || shortcodeRegistry.get(shortcode);
+            if (!pwd) {
+              res.writeHead(400, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ error: 'Missing password - either provide in request or pre-generate' }));
+              return;
+            }
+            const result = await adapter.publishMessage(pwd, message);
             res.writeHead(200, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({
               success: true,
