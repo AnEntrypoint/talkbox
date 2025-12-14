@@ -1,0 +1,151 @@
+import { generateShortcode } from './index.js';
+import NostrRelayAdapter from './adapters/nostr-relay.js';
+
+const adapter = new NostrRelayAdapter();
+let connected = false;
+
+async function handleRequest(request, env, ctx) {
+  const url = new URL(request.url);
+  const path = url.pathname;
+
+  const headers = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type'
+  };
+
+  if (request.method === 'OPTIONS') {
+    return new Response(null, { status: 200, headers });
+  }
+
+  try {
+    if (!connected) {
+      await adapter.connect();
+      connected = true;
+    }
+
+    if (path === '/generate' && request.method === 'GET') {
+      const password = url.searchParams.get('password');
+      if (!password) {
+        return new Response(JSON.stringify({ error: 'Missing password' }), {
+          status: 400,
+          headers: { ...headers, 'Content-Type': 'application/json' }
+        });
+      }
+
+      const shortcode = generateShortcode(password);
+      await env.SHORTCODES.put(shortcode, password, { expirationTtl: 2592000 });
+
+      return new Response(JSON.stringify({
+        shortcode,
+        message: `Share this code: ${shortcode}. Keep your password secret!`,
+        apiEndpoints: {
+          send: `/send?code=${shortcode}&message=hello`,
+          read: `/read?password=${password}`,
+          status: '/status'
+        }
+      }), {
+        status: 200,
+        headers: { ...headers, 'Content-Type': 'application/json' }
+      });
+    }
+
+    if (path === '/send' && request.method === 'POST') {
+      const body = await request.json();
+      const { shortcode, message } = body;
+
+      if (!shortcode || !message) {
+        return new Response(JSON.stringify({ error: 'Missing shortcode or message' }), {
+          status: 400,
+          headers: { ...headers, 'Content-Type': 'application/json' }
+        });
+      }
+
+      const password = await env.SHORTCODES.get(shortcode);
+      if (!password) {
+        return new Response(JSON.stringify({ error: 'Invalid shortcode' }), {
+          status: 400,
+          headers: { ...headers, 'Content-Type': 'application/json' }
+        });
+      }
+
+      const result = await adapter.publishMessage(password, message);
+
+      const msgKey = `${shortcode}:${result.eventId}`;
+      await env.MESSAGES.put(msgKey, JSON.stringify({
+        content: message,
+        timestamp: Date.now(),
+        id: result.eventId
+      }), { expirationTtl: 2592000 });
+
+      return new Response(JSON.stringify({
+        success: true,
+        messageId: result.eventId,
+        publishedTo: result.publishedTo,
+        totalRelays: result.totalRelays
+      }), {
+        status: 200,
+        headers: { ...headers, 'Content-Type': 'application/json' }
+      });
+    }
+
+    if (path === '/read' && request.method === 'GET') {
+      const password = url.searchParams.get('password');
+      if (!password) {
+        return new Response(JSON.stringify({ error: 'Missing password' }), {
+          status: 400,
+          headers: { ...headers, 'Content-Type': 'application/json' }
+        });
+      }
+
+      const shortcode = generateShortcode(password);
+      const messages = await adapter.readMessages(password);
+
+      return new Response(JSON.stringify({
+        success: true,
+        shortcode,
+        messageCount: messages.length,
+        messages
+      }), {
+        status: 200,
+        headers: { ...headers, 'Content-Type': 'application/json' }
+      });
+    }
+
+    if (path === '/status' && request.method === 'GET') {
+      const stats = await adapter.getRelayStats();
+      return new Response(JSON.stringify({
+        server: 'Talkbox (Cloudflare Workers)',
+        adapter: 'nostr',
+        status: 'running',
+        relays: stats.relays,
+        endpoints: {
+          generate: 'GET /generate?password=YOUR_PASSWORD',
+          send: 'POST /send with { shortcode, message }',
+          read: 'GET /read?password=YOUR_PASSWORD',
+          status: 'GET /status'
+        }
+      }), {
+        status: 200,
+        headers: { ...headers, 'Content-Type': 'application/json' }
+      });
+    }
+
+    return new Response(JSON.stringify({ error: 'Not found' }), {
+      status: 404,
+      headers: { ...headers, 'Content-Type': 'application/json' }
+    });
+  } catch (e) {
+    console.error('Error:', e);
+    return new Response(JSON.stringify({ error: e.message }), {
+      status: 500,
+      headers: { ...headers, 'Content-Type': 'application/json' }
+    });
+  }
+}
+
+export default {
+  async fetch(request, env, ctx) {
+    return handleRequest(request, env, ctx);
+  }
+};

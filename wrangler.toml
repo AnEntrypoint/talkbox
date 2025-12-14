@@ -1,0 +1,33 @@
+name = "talkbox"
+main = "src/worker.js"
+type = "service"
+compatibility_date = "2025-12-14"
+
+[env.production]
+name = "talkbox-prod"
+route = "talkbox-prod.workers.dev"
+
+[[kv_namespaces]]
+binding = "MESSAGES"
+id = "talkbox-messages"
+preview_id = "talkbox-messages-preview"
+
+[[kv_namespaces]]
+binding = "SHORTCODES"
+id = "talkbox-shortcodes"
+preview_id = "talkbox-shortcodes-preview"
+
+[build]
+command = "npm run build"
+cwd = "."
+
+[env.production.build]
+command = "npm run build"
+cwd = "."
+
+[build.upload]
+format = "modules"
+main = "./src/worker.js"
+
+[limits]
+cpu_ms = 50

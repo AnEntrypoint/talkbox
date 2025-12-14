@@ -18,7 +18,9 @@
     "demo:e2e": "node demo-nostr-e2e.js",
     "demo:persistent": "node demo-nostr-persistent.js",
     "server:nostr": "node server.js --adapter nostr",
-    "server:ipfs": "node server.js --adapter ipfs"
+    "server:ipfs": "node server.js --adapter ipfs",
+    "build": "echo 'Worker ready for deployment'",
+    "deploy:cf": "wrangler deploy"
   },
   "author": "",
   "license": "MIT",
