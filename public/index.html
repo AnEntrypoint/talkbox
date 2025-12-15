@@ -6,7 +6,7 @@
   <title>Talkbox - Secure Message Exchange</title>
   <script src="https://cdn.jsdelivr.net/npm/tweetnacl@1.0.3/nacl-fast.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.4/dist/html5-qrcode.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrious/4.0.2/qrious.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
   <script>
     window.nostrToolsReady = import('https://esm.sh/nostr-tools@2.19.3').then(mod => {
       window.nostrTools = mod;
@@ -180,18 +180,18 @@
       return html.join('');
     }
 
-    function createMicroQRCode(secretKeyBytes, base58Text) {
+    async function createMicroQRCode(secretKeyBytes, base58Text) {
       try {
         const data = String.fromCharCode.apply(null, secretKeyBytes);
         const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d');
 
-        new QRious({
-          element: canvas,
-          value: data,
-          size: 100,
-          level: 'H',
-          mime: 'image/png'
+        await QRCode.toCanvas(canvas, data, {
+          errorCorrectionLevel: 'H',
+          type: 'image/png',
+          width: 100,
+          margin: 0,
+          scale: 1,
+          color: { dark: '#000', light: '#fff' }
         });
 
         return {
@@ -231,7 +231,7 @@
 
       const base58 = toBase58(secretKey);
       const visual = generateVisualGrid(secretKey, true);
-      const qrData = createMicroQRCode(secretKey, base58);
+      const qrData = await createMicroQRCode(secretKey, base58);
 
       return { hex: publicKey, base58, visual, qr: qrData, bytes: secretKey };
     }
