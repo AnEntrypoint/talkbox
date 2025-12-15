@@ -134,6 +134,26 @@
       return result;
     }
 
+    function fromBase58(str) {
+      const alphabet = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+      let num = 0n;
+      for (let i = 0; i < str.length; i++) {
+        const idx = alphabet.indexOf(str[i]);
+        if (idx === -1) throw new Error('Invalid Base58 character');
+        num = num * 58n + BigInt(idx);
+      }
+      const bytes = [];
+      while (num > 0n) {
+        bytes.unshift(Number(num & 0xFFn));
+        num = num >> 8n;
+      }
+      for (let i = 0; i < str.length; i++) {
+        if (str[i] === '1') bytes.unshift(0);
+        else break;
+      }
+      return new Uint8Array(bytes.length === 0 ? [0] : bytes);
+    }
+
     function generateVisualGrid(bytes, compact = true) {
       const cols = compact ? 8 : 16;
       const html = [];
@@ -265,21 +285,33 @@
         const senderSecret = await deriveSecret(senderPassword);
         const senderPubkey = window.nostrTools.getPublicKey(senderSecret);
 
+        const recipientSecretBytes = fromBase58(shortcodeInput);
+        const recipientPubkey = window.nostrTools.getPublicKey(recipientSecretBytes);
+
         const event = window.nostrTools.finalizeEvent({
           kind: 1,
           created_at: Math.floor(Date.now() / 1000),
-          tags: [['p', shortcodeInput]],
+          tags: [['p', recipientPubkey]],
           content: message,
           pubkey: senderPubkey
         }, senderSecret);
 
-        const ps = relays.map(async r => {
+        const publishPromises = relays.map(async r => {
           try {
             const pubs = pool.publish([r], event);
-            for await (const pub of pubs) {}
-          } catch (e) {}
+            let published = false;
+            for await (const pub of pubs) {
+              published = true;
+            }
+            return published;
+          } catch (e) {
+            console.error('Publish error:', e);
+            return false;
+          }
         });
-        await Promise.all(ps);
+
+        const results = await Promise.all(publishPromises);
+        await new Promise(r => setTimeout(r, 500));
         pool.close(relays);
 
         document.getElementById('send-message').value = '';
