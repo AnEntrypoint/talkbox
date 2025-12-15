@@ -6,6 +6,7 @@
   <title>Talkbox - Secure Message Exchange</title>
   <script src="nacl-fast.min.js"></script>
   <script src="qrcode.min.js"></script>
+  <script src="jsqr.js"></script>
   <script src="nostr-tools.js"></script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -78,6 +79,11 @@
       <div class="form-group">
         <label for="send-shortcode">Their Shortcode</label>
         <input type="text" id="send-shortcode" placeholder="Paste the shortcode they shared or scan QR">
+        <button class="small" onclick="toggleQRScanner()">📱 Scan QR</button>
+      </div>
+      <div id="scanner-container" style="display: none; margin-bottom: 20px;">
+        <video id="qr-video" style="width: 100%; border-radius: 4px; margin-bottom: 10px;"></video>
+        <button onclick="stopQRScanner()" style="width: 100%;">Stop Scanner</button>
       </div>
       <div class="form-group">
         <label for="send-message">Your Message</label>
@@ -402,6 +408,68 @@
     function escapeHtml(text) {
       const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
       return text.replace(/[&<>"']/g, m => map[m]);
+    }
+
+    let scannerStream = null;
+
+    async function toggleQRScanner() {
+      const container = document.getElementById('scanner-container');
+      if (container.style.display === 'none') {
+        await startQRScanner();
+        container.style.display = 'block';
+      } else {
+        stopQRScanner();
+        container.style.display = 'none';
+      }
+    }
+
+    async function startQRScanner() {
+      const video = document.getElementById('qr-video');
+      try {
+        scannerStream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: 'environment' }
+        });
+        video.srcObject = scannerStream;
+        video.play();
+        scanQRFrame(video);
+      } catch (e) {
+        showResult('send-result', 'Camera access denied or unavailable', 'error');
+      }
+    }
+
+    function stopQRScanner() {
+      document.getElementById('scanner-container').style.display = 'none';
+      if (scannerStream) {
+        scannerStream.getTracks().forEach(track => track.stop());
+        scannerStream = null;
+      }
+    }
+
+    function scanQRFrame(video) {
+      if (!scannerStream) return;
+
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+
+      ctx.drawImage(video, 0, 0);
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const code = jsQR(imageData.data, canvas.width, canvas.height);
+
+      if (code) {
+        try {
+          const bytes = Uint8Array.from(atob(code.data), c => c.charCodeAt(0));
+          const shortcode = toBase58(bytes);
+          document.getElementById('send-shortcode').value = shortcode;
+          stopQRScanner();
+          showResult('send-result', '✓ QR code scanned successfully!', 'success');
+        } catch (e) {
+          showResult('send-result', 'Invalid QR code data', 'error');
+        }
+      } else {
+        requestAnimationFrame(() => scanQRFrame(video));
+      }
     }
 
   </script>
