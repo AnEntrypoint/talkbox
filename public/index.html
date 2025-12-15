@@ -183,18 +183,25 @@
     function createMicroQRCode(secretKeyBytes, base58Text) {
       try {
         const data = String.fromCharCode.apply(null, secretKeyBytes);
-        const base64Data = btoa(data);
-        const encoded = encodeURIComponent(data);
-        const url = `https://api.qrserver.com/v1/create-qr-code/?format=png&size=120x120&ecc=H&qtype=M&data=${encoded}`;
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+
+        new QRious({
+          element: canvas,
+          value: data,
+          size: 100,
+          level: 'H',
+          mime: 'image/png'
+        });
 
         return {
-          dataUrl: url,
-          compact: base64Data,
+          dataUrl: canvas.toDataURL('image/png'),
+          compact: btoa(data),
           full: base58Text,
           bytes: secretKeyBytes
         };
       } catch (e) {
-        console.warn('MicroQR generation failed:', e);
+        console.warn('QR generation failed:', e);
         return null;
       }
     }
