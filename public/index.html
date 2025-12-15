@@ -193,12 +193,11 @@
           return null;
         }
 
-        const base64Data = btoa(String.fromCharCode.apply(null, secretKeyBytes));
         const canvas = document.createElement('canvas');
 
         await bwipjs.toCanvas(canvas, {
           bcid: 'microqr',
-          text: base64Data,
+          text: String.fromCharCode.apply(null, secretKeyBytes),
           scale: 2,
           includetext: false,
           backgroundcolor: 'ffffff',
@@ -207,7 +206,7 @@
 
         return {
           dataUrl: canvas.toDataURL('image/png'),
-          compact: base64Data,
+          compact: base58Text,
           full: base58Text,
           bytes: secretKeyBytes
         };
@@ -271,15 +270,14 @@
           <div style="display: flex; gap: 20px; align-items: flex-start;">
             <div style="text-align: center;">
               ${qrImg}
-              <div style="font-size: 10px; color: #999; margin-top: 8px;">MicroQR<br>(44-char Base64)</div>
+              <div style="font-size: 10px; color: #999; margin-top: 8px;">MicroQR<br>(raw 32 bytes)</div>
             </div>
             <div style="flex: 1;">
               <div class="shortcode-text-compact" style="margin-bottom: 8px;"><strong>Share this Base58:</strong><br>${result.base58}</div>
-              <button class="small" onclick="copyToClipboard('${result.qr?.compact}')">Copy Base64</button>
               <button class="small" onclick="copyToClipboard('${result.base58}')">Copy Base58</button>
             </div>
           </div>
-          <span style="color: #666; font-size: 12px; margin-top: 12px; display: block;">📱 MicroQR encodes 44-char Base64 for compact format. Scan with camera to auto-fill shortcode.</span>
+          <span style="color: #666; font-size: 12px; margin-top: 12px; display: block;">📱 MicroQR encodes raw 32-byte key. Scan with camera to auto-fill shortcode.</span>
         </div>
       `;
       document.getElementById('gen-result').innerHTML = html;
@@ -311,15 +309,15 @@
         const senderPubkey = window.nostrTools.getPublicKey(senderSecret);
 
         let recipientSecretBytes;
-        try {
-          if (/^[A-Za-z0-9+/=]+$/.test(shortcodeInput)) {
-            const binaryString = atob(shortcodeInput);
-            recipientSecretBytes = new Uint8Array(binaryString.split('').map(c => c.charCodeAt(0)));
-          } else {
+        if (shortcodeInput.length === 32 && /[\x00-\x1F\x7F-\xFF]/.test(shortcodeInput)) {
+          recipientSecretBytes = new Uint8Array(shortcodeInput.split('').map(c => c.charCodeAt(0)));
+        } else {
+          try {
             recipientSecretBytes = fromBase58(shortcodeInput);
+          } catch (e) {
+            showResult('send-result', 'Invalid shortcode format', 'error');
+            return;
           }
-        } catch (e) {
-          recipientSecretBytes = fromBase58(shortcodeInput);
         }
         if (!recipientSecretBytes || recipientSecretBytes.length !== 32) {
           showResult('send-result', 'Invalid shortcode format', 'error');
