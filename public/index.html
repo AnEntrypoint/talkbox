@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Talkbox - Secure Message Exchange</title>
   <script src="https://cdn.jsdelivr.net/npm/tweetnacl@1.0.3/nacl-fast.min.js"></script>
+  <script src="https://unpkg.com/html5-qrcode@2.3.4/dist/html5-qrcode.min.js"></script>
   <script>
     window.nostrToolsReady = import('https://esm.sh/nostr-tools@2.19.3').then(mod => {
       window.nostrTools = mod;
@@ -47,6 +48,11 @@
     .shortcode-visual.compact { grid-template-columns: repeat(8, 1fr); }
     .pixel { width: 8px; height: 8px; border-radius: 1px; }
     .shortcode-text-compact { font-family: monospace; font-size: 12px; color: #007bff; word-break: break-all; line-height: 1.4; }
+    #scanner-container { display: none; margin-bottom: 20px; }
+    #scanner-container.active { display: block; }
+    #qr-reader { width: 100%; max-width: 100%; }
+    .scan-buttons { display: flex; gap: 10px; margin-bottom: 15px; }
+    .scan-buttons button { flex: 1; padding: 10px; font-size: 14px; }
   </style>
 </head>
 <body>
@@ -79,9 +85,16 @@
       <div class="info">
         <strong>Step 2:</strong> Someone shares their shortcode. Send them an encrypted message (only they can read it with their password).
       </div>
+      <div class="scan-buttons">
+        <button onclick="toggleQRScanner()">📷 Scan QR Code</button>
+        <button onclick="toggleQRScanner()" id="close-scanner-btn" style="display:none;">Close Scanner</button>
+      </div>
+      <div id="scanner-container">
+        <div id="qr-reader"></div>
+      </div>
       <div class="form-group">
         <label for="send-shortcode">Their Shortcode</label>
-        <input type="text" id="send-shortcode" placeholder="Paste the shortcode they shared">
+        <input type="text" id="send-shortcode" placeholder="Paste the shortcode they shared or scan QR">
       </div>
       <div class="form-group">
         <label for="send-message">Your Message</label>
@@ -383,6 +396,58 @@
     function escapeHtml(text) {
       const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
       return text.replace(/[&<>"']/g, m => map[m]);
+    }
+
+    let qrScanner = null;
+    let isScannerRunning = false;
+
+    function toggleQRScanner() {
+      const scannerContainer = document.getElementById('scanner-container');
+      const scanBtn = document.querySelector('.scan-buttons button:first-child');
+      const closeBtn = document.getElementById('close-scanner-btn');
+
+      if (isScannerRunning) {
+        stopQRScanner();
+        scannerContainer.classList.remove('active');
+        scanBtn.style.display = 'block';
+        closeBtn.style.display = 'none';
+        isScannerRunning = false;
+      } else {
+        startQRScanner();
+        scannerContainer.classList.add('active');
+        scanBtn.style.display = 'none';
+        closeBtn.style.display = 'block';
+        isScannerRunning = true;
+      }
+    }
+
+    function startQRScanner() {
+      qrScanner = new Html5Qrcode('qr-reader');
+      qrScanner.start(
+        { facingMode: 'environment' },
+        { fps: 10, qrbox: 250 },
+        onQRScan,
+        onScanError
+      ).catch(e => console.error('Failed to start scanner:', e));
+    }
+
+    function stopQRScanner() {
+      if (qrScanner) {
+        qrScanner.stop().then(() => {
+          qrScanner.clear();
+          qrScanner = null;
+        }).catch(e => console.error('Failed to stop scanner:', e));
+      }
+    }
+
+    function onQRScan(decodedText) {
+      const cleanedText = decodedText.trim();
+      document.getElementById('send-shortcode').value = cleanedText;
+      toggleQRScanner();
+      showResult('send-result', '✓ QR code scanned successfully!', 'success');
+    }
+
+    function onScanError(errorMessage) {
     }
   </script>
 </body>
