@@ -1,38 +1,20 @@
 {
   "name": "talkbox",
   "version": "0.1.0",
-  "description": "Minimal cryptographic system for sharing messages via shortcodes",
-  "main": "src/index.js",
+  "description": "100% client-side encrypted messaging via shortcodes using Nostr protocol",
   "type": "module",
   "keywords": [
-    "crypto",
+    "nostr",
     "encryption",
     "shortcode",
-    "messaging"
+    "messaging",
+    "decentralized"
   ],
   "scripts": {
-    "test": "node test.js",
-    "example": "node examples/basic.js",
-    "examples:advanced": "node examples/advanced.js",
-    "demo:nostr": "node cli-test-nostr.js",
-    "demo:e2e": "node demo-nostr-e2e.js",
-    "demo:persistent": "node demo-nostr-persistent.js",
-    "server:nostr": "node server.js --adapter nostr",
-    "server:ipfs": "node server.js --adapter ipfs",
-    "build": "echo 'Worker ready for deployment'",
-    "deploy:cf": "wrangler deploy"
+    "build": "echo 'Ready for GitHub Pages deployment'"
   },
   "author": "",
   "license": "MIT",
-  "engines": {
-    "node": ">=18.0.0"
-  },
-  "dependencies": {
-    "keypear": "^1.2.2",
-    "nostr-tools": "^2.19.3",
-    "tweetnacl": "^1.0.3",
-    "tweetnacl-util": "^0.15.1"
-  },
   "devDependencies": {
     "@playwright/test": "^1.57.0"
   }
