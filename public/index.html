@@ -82,7 +82,7 @@
         <button class="small" onclick="toggleQRScanner()">📱 Scan QR</button>
       </div>
       <div id="scanner-container" style="display: none; margin-bottom: 20px;">
-        <video id="qr-video" style="width: 100%; border-radius: 4px; margin-bottom: 10px;"></video>
+        <video id="qr-video" autoplay playsinline muted style="width: 100%; border-radius: 4px; margin-bottom: 10px;"></video>
         <button onclick="stopQRScanner()" style="width: 100%;">Stop Scanner</button>
       </div>
       <div class="form-group">
@@ -427,13 +427,19 @@
       const video = document.getElementById('qr-video');
       try {
         scannerStream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: 'environment' }
+          video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }
         });
         video.srcObject = scannerStream;
-        video.play();
+        await video.play();
         scanQRFrame(video);
       } catch (e) {
-        showResult('send-result', 'Camera access denied or unavailable', 'error');
+        console.error('Camera error:', e.name, e.message);
+        const msg = e.name === 'NotAllowedError'
+          ? 'Camera permission denied. Allow camera access in browser settings.'
+          : e.name === 'NotFoundError'
+          ? 'No camera found on this device.'
+          : 'Camera error: ' + e.message;
+        showResult('send-result', msg, 'error');
       }
     }
 
@@ -447,6 +453,11 @@
 
     function scanQRFrame(video) {
       if (!scannerStream) return;
+
+      if (!video.videoWidth || !video.videoHeight) {
+        requestAnimationFrame(() => scanQRFrame(video));
+        return;
+      }
 
       const canvas = document.createElement('canvas');
       const ctx = canvas.getContext('2d');
