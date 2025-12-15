@@ -201,7 +201,12 @@
           pubkey: senderPubkey
         }, senderSecret);
 
-        const ps = relays.map(r => pool.publish([r], event).catch(() => {}));
+        const ps = relays.map(async r => {
+          try {
+            const pubs = pool.publish([r], event);
+            for await (const pub of pubs) {}
+          } catch (e) {}
+        });
         await Promise.all(ps);
         pool.close(relays);
 
