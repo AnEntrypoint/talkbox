@@ -349,7 +349,7 @@
 
         const results = await Promise.all(publishPromises);
         await new Promise(r => setTimeout(r, 500));
-        pool.close(relays);
+        pool.close(RELAYS);
 
         document.getElementById('send-message').value = '';
         showResult('send-result', '✓ Message sent successfully!', 'success');
