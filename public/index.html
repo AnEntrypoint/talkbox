@@ -270,14 +270,14 @@
           <div style="display: flex; gap: 20px; align-items: flex-start;">
             <div style="text-align: center;">
               ${qrImg}
-              <div style="font-size: 10px; color: #999; margin-top: 8px;">MicroQR<br>(raw 32 bytes)</div>
+              <div style="font-size: 10px; color: #999; margin-top: 8px;">QR Code<br>(raw 32 bytes)</div>
             </div>
             <div style="flex: 1;">
               <div class="shortcode-text-compact" style="margin-bottom: 8px;"><strong>Share this Base58:</strong><br>${result.base58}</div>
               <button class="small" onclick="copyToClipboard('${result.base58}')">Copy Base58</button>
             </div>
           </div>
-          <span style="color: #666; font-size: 12px; margin-top: 12px; display: block;">📱 MicroQR encodes raw 32-byte key. Scan with camera to auto-fill shortcode.</span>
+          <span style="color: #666; font-size: 12px; margin-top: 12px; display: block;">📱 QR Code encodes raw 32-byte key (MicroQR max is 15 bytes). Scan with camera to auto-fill shortcode.</span>
         </div>
       `;
       document.getElementById('gen-result').innerHTML = html;
