@@ -1,19 +1,33 @@
+import { getPublicKey } from 'nostr-tools';
 import NostrRelayAdapter from './adapters/nostr-relay.js';
 
 const adapter = new NostrRelayAdapter();
 
 /**
- * Generate shortcode from password using Web Crypto API (Cloudflare Workers compatible)
- * Must match the client-side implementation in public/index.html
- * Simple SHA256 hash-based shortcode
+ * Derive Nostr keypair from password (Ed25519)
+ * Uses same derivation as adapter.deriveNostrKeys()
+ */
+async function deriveNostrKeys(password) {
+  // Create deterministic seed from password
+  const encoder = new TextEncoder();
+  const data = encoder.encode(password + 'talkbox-nostr-derivation');
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  const seed = new Uint8Array(hashBuffer);
+
+  // Use first 32 bytes as secret key
+  const secretKey = seed.slice(0, 32);
+  const publicKey = getPublicKey(secretKey);
+
+  return { secretKey, publicKey };
+}
+
+/**
+ * Generate shortcode from password
+ * Shortcode = Nostr public key (hex string)
  */
 async function generateShortcode(password) {
-  const encoder = new TextEncoder();
-  const data = encoder.encode(password);
-  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  const base64 = btoa(String.fromCharCode(...hashArray));
-  return base64;
+  const { publicKey } = await deriveNostrKeys(password);
+  return publicKey;
 }
 
 async function handleRequest(request, env, ctx) {
@@ -61,7 +75,7 @@ async function handleRequest(request, env, ctx) {
 
     if (path === '/send' && request.method === 'POST') {
       const body = await request.json();
-      const { shortcode, message, recipientPassword } = body;
+      const { shortcode, message } = body;
 
       if (!shortcode || !message) {
         return new Response(JSON.stringify({ error: 'Missing shortcode or message' }), {
@@ -70,31 +84,34 @@ async function handleRequest(request, env, ctx) {
         });
       }
 
-      // The shortcode IS the recipient's public key (in base64)
-      // We need to publish the message so it can be found by pubkey
-      // Since we don't have the recipient's secret key, we use the adapter's publish
-      // with a temporary "mailbox" identity, then tag it for the recipient
+      try {
+        // Shortcode is the recipient's Nostr public key (hex string)
+        // We publish the encrypted message to Nostr tagged for the recipient
+        // Using a temporary identity for publishing (not from recipient's key)
 
-      // For now, just store in KV - the recipient will query using their password
-      // which derives to the same pubkey/shortcode
-      const result = { eventId: crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36) };
+        // For now, use a fixed publisher identity so the server doesn't leak identity
+        // In a real app, could have different sender identities
+        const publisherPassword = 'talkbox-relay-publisher';
 
-      const msgKey = `${shortcode}:${result.eventId}`;
-      await env.MESSAGES.put(msgKey, JSON.stringify({
-        message: message,
-        timestamp: Date.now(),
-        id: result.eventId
-      }), { expirationTtl: 2592000 });
+        // Publish the message to Nostr
+        // The adapter will publish under the publisher's key, but tag it for the recipient
+        const result = await adapter.publishMessage(publisherPassword, message);
 
-      return new Response(JSON.stringify({
-        success: true,
-        messageId: result.eventId,
-        publishedTo: result.publishedTo,
-        totalRelays: result.totalRelays
-      }), {
-        status: 200,
-        headers: { ...headers, 'Content-Type': 'application/json' }
-      });
+        return new Response(JSON.stringify({
+          success: true,
+          messageId: result.eventId,
+          publishedTo: result.publishedTo,
+          totalRelays: result.totalRelays
+        }), {
+          status: 200,
+          headers: { ...headers, 'Content-Type': 'application/json' }
+        });
+      } catch (e) {
+        return new Response(JSON.stringify({ error: e.message }), {
+          status: 500,
+          headers: { ...headers, 'Content-Type': 'application/json' }
+        });
+      }
     }
 
     if (path === '/read' && request.method === 'GET') {
@@ -106,33 +123,27 @@ async function handleRequest(request, env, ctx) {
         });
       }
 
-      const shortcode = await generateShortcode(password);
+      try {
+        const shortcode = await generateShortcode(password);
 
-      // Query KV store for messages sent to this shortcode
-      const messagesList = [];
-      const kvPrefix = `${shortcode}:`;
+        // Query Nostr relays for messages
+        const messages = await adapter.readMessages(password);
 
-      // Get all messages for this shortcode from KV
-      const list = await env.MESSAGES.list({ prefix: kvPrefix });
-      for (const item of list.keys) {
-        const msgData = await env.MESSAGES.get(item.name, 'json');
-        if (msgData) {
-          messagesList.push(msgData);
-        }
+        return new Response(JSON.stringify({
+          success: true,
+          shortcode,
+          messageCount: messages.length,
+          messages: messages
+        }), {
+          status: 200,
+          headers: { ...headers, 'Content-Type': 'application/json' }
+        });
+      } catch (e) {
+        return new Response(JSON.stringify({ error: e.message }), {
+          status: 500,
+          headers: { ...headers, 'Content-Type': 'application/json' }
+        });
       }
-
-      // Sort by timestamp (newest first)
-      messagesList.sort((a, b) => b.timestamp - a.timestamp);
-
-      return new Response(JSON.stringify({
-        success: true,
-        shortcode,
-        messageCount: messagesList.length,
-        messages: messagesList
-      }), {
-        status: 200,
-        headers: { ...headers, 'Content-Type': 'application/json' }
-      });
     }
 
     if (path === '/status' && request.method === 'GET') {
