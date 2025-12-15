@@ -166,22 +166,13 @@
       return html.join('');
     }
 
-    function createMicroQRCode(base58Text) {
+    function createMicroQRCode(secretKeyBytes, base58Text) {
       try {
-        const alphabet = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
-        const prefix = base58Text.substring(0, 16);
-
-        let checksum = 0;
-        for (let i = 0; i < base58Text.length; i++) {
-          checksum = (checksum * 31 + base58Text.charCodeAt(i)) & 0xFFFF;
-        }
-        const checksumChars = alphabet[checksum % 58] + alphabet[(Math.floor(checksum / 58)) % 58];
-
-        const compactCode = prefix + checksumChars;
-        const encoded = encodeURIComponent(compactCode);
+        const hexData = Array.from(secretKeyBytes).map(b => b.toString(16).padStart(2, '0')).join('');
+        const encoded = encodeURIComponent(hexData);
         return {
           url: `https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encoded}&color=007bff&bgcolor=ffffff`,
-          compact: compactCode,
+          hex: hexData,
           full: base58Text
         };
       } catch (e) {
@@ -215,7 +206,7 @@
 
       const base58 = toBase58(secretKey);
       const visual = generateVisualGrid(secretKey, true);
-      const qrData = createMicroQRCode(base58);
+      const qrData = createMicroQRCode(secretKey, base58);
 
       return { hex: publicKey, base58, visual, qr: qrData, bytes: secretKey };
     }
@@ -237,16 +228,14 @@
         return;
       }
       const result = await generateShortcodeFromPassword(password);
-      const qrImg = result.qr && result.qr.url ? `<img src="${result.qr.url}" style="max-width: 120px; border: 1px solid #ddd; border-radius: 4px;" alt="MicroQR" loading="lazy" title="Compact verification code"/>` : '';
-      const compactCode = result.qr?.compact ? `<div style="font-size: 11px; color: #999; margin-top: 4px; text-align: center; font-family: monospace;">${result.qr.compact}</div>` : '';
+      const qrImg = result.qr && result.qr.url ? `<img src="${result.qr.url}" style="max-width: 120px; border: 1px solid #ddd; border-radius: 4px;" alt="MicroQR" loading="lazy" title="Bitpacked hex data"/>` : '';
       const html = `
         <div class="result success">
           <h3>✓ Your Shortcode (Generated Instantly)</h3>
           <div style="display: flex; gap: 20px; align-items: flex-start;">
             <div style="text-align: center;">
               ${qrImg}
-              ${compactCode}
-              <div style="font-size: 10px; color: #999; margin-top: 8px;">MicroQR<br>(verification)</div>
+              <div style="font-size: 10px; color: #999; margin-top: 8px;">MicroQR<br>(64-char hex)</div>
             </div>
             <div style="flex: 1;">
               <div class="shortcode-text-compact" style="margin-bottom: 8px;"><strong>Share this Base58:</strong><br>${result.base58}</div>
@@ -254,7 +243,7 @@
               <button class="small" onclick="copyToClipboard('${result.base58}')">Copy Base58</button>
             </div>
           </div>
-          <span style="color: #666; font-size: 12px; margin-top: 12px; display: block;">📱 Share the Base58 code. MicroQR (50% smaller) shows compact verification hash.</span>
+          <span style="color: #666; font-size: 12px; margin-top: 12px; display: block;">📱 Share the Base58 code. MicroQR encodes raw 32-byte key as 64-char hex for efficient scanning.</span>
         </div>
       `;
       document.getElementById('gen-result').innerHTML = html;
@@ -285,7 +274,12 @@
         const senderSecret = await deriveSecret(senderPassword);
         const senderPubkey = window.nostrTools.getPublicKey(senderSecret);
 
-        const recipientSecretBytes = fromBase58(shortcodeInput);
+        let recipientSecretBytes;
+        if (shortcodeInput.length === 64 && /^[0-9a-f]+$/i.test(shortcodeInput)) {
+          recipientSecretBytes = new Uint8Array(shortcodeInput.match(/.{1,2}/g).map(byte => parseInt(byte, 16)));
+        } else {
+          recipientSecretBytes = fromBase58(shortcodeInput);
+        }
         const recipientPubkey = window.nostrTools.getPublicKey(recipientSecretBytes);
 
         const event = window.nostrTools.finalizeEvent({
@@ -361,8 +355,7 @@
 
         if (messages.length === 0) {
           const qrImg = result.qr && result.qr.url ? `<img src="${result.qr.url}" style="max-width: 100px; border: 1px solid #ddd; border-radius: 4px;" alt="MicroQR" loading="lazy"/>` : '';
-          const compactCode = result.qr?.compact ? `<div style="font-size: 10px; color: #999; margin-top: 4px; font-family: monospace;">${result.qr.compact}</div>` : '';
-          showResult('read-result', `<h3>No messages yet</h3><strong>Your shortcode to share:</strong><div style="margin-top: 12px; display: flex; gap: 12px;"><div style="text-align: center;">${qrImg}${compactCode}</div><div><div class="shortcode-text-compact"><strong>Base58:</strong><br>${result.base58}</div></div></div>`, 'success');
+          showResult('read-result', `<h3>No messages yet</h3><strong>Your shortcode to share:</strong><div style="margin-top: 12px; display: flex; gap: 12px;"><div style="text-align: center;">${qrImg}</div><div><div class="shortcode-text-compact"><strong>Base58:</strong><br>${result.base58}</div></div></div>`, 'success');
         } else {
           let html = `<h3>📨 Messages (${messages.length})</h3>`;
           messages.forEach(msg => {
