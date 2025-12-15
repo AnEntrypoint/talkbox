@@ -181,11 +181,11 @@
 
     function createMicroQRCode(secretKeyBytes, base58Text) {
       try {
-        const hexData = Array.from(secretKeyBytes).map(b => b.toString(16).padStart(2, '0')).join('');
-        const encoded = encodeURIComponent(hexData);
+        const base64Data = btoa(String.fromCharCode.apply(null, secretKeyBytes));
+        const encoded = encodeURIComponent(base64Data);
         return {
           url: `https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encoded}&color=007bff&bgcolor=ffffff`,
-          hex: hexData,
+          compact: base64Data,
           full: base58Text
         };
       } catch (e) {
@@ -248,15 +248,15 @@
           <div style="display: flex; gap: 20px; align-items: flex-start;">
             <div style="text-align: center;">
               ${qrImg}
-              <div style="font-size: 10px; color: #999; margin-top: 8px;">MicroQR<br>(64-char hex)</div>
+              <div style="font-size: 10px; color: #999; margin-top: 8px;">MicroQR<br>(44-char Base64)</div>
             </div>
             <div style="flex: 1;">
               <div class="shortcode-text-compact" style="margin-bottom: 8px;"><strong>Share this Base58:</strong><br>${result.base58}</div>
-              <button class="small" onclick="copyToClipboard('${result.hex}')">Copy Hex</button>
+              <button class="small" onclick="copyToClipboard('${result.qr?.compact}')">Copy Base64</button>
               <button class="small" onclick="copyToClipboard('${result.base58}')">Copy Base58</button>
             </div>
           </div>
-          <span style="color: #666; font-size: 12px; margin-top: 12px; display: block;">📱 Share the Base58 code. MicroQR encodes raw 32-byte key as 64-char hex for efficient scanning.</span>
+          <span style="color: #666; font-size: 12px; margin-top: 12px; display: block;">📱 Share the Base58 code. MicroQR encodes raw 32-byte key as bitpacked Base64 for efficient scanning.</span>
         </div>
       `;
       document.getElementById('gen-result').innerHTML = html;
@@ -288,8 +288,13 @@
         const senderPubkey = window.nostrTools.getPublicKey(senderSecret);
 
         let recipientSecretBytes;
-        if (shortcodeInput.length === 64 && /^[0-9a-f]+$/i.test(shortcodeInput)) {
-          recipientSecretBytes = new Uint8Array(shortcodeInput.match(/.{1,2}/g).map(byte => parseInt(byte, 16)));
+        if (/^[A-Za-z0-9+/=]+$/.test(shortcodeInput)) {
+          try {
+            const binaryString = atob(shortcodeInput);
+            recipientSecretBytes = new Uint8Array(binaryString.split('').map(c => c.charCodeAt(0)));
+          } catch (e) {
+            recipientSecretBytes = fromBase58(shortcodeInput);
+          }
         } else {
           recipientSecretBytes = fromBase58(shortcodeInput);
         }
