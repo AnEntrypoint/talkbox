@@ -6,6 +6,7 @@
   <title>Talkbox - Secure Message Exchange</title>
   <script src="https://cdn.jsdelivr.net/npm/tweetnacl@1.0.3/nacl-fast.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.4/dist/html5-qrcode.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrious/4.0.2/qrious.min.js"></script>
   <script>
     window.nostrToolsReady = import('https://esm.sh/nostr-tools@2.19.3').then(mod => {
       window.nostrTools = mod;
@@ -181,15 +182,24 @@
 
     function createMicroQRCode(secretKeyBytes, base58Text) {
       try {
-        const base64Data = btoa(String.fromCharCode.apply(null, secretKeyBytes));
-        const encoded = encodeURIComponent(base64Data);
+        const canvas = document.createElement('canvas');
+        new QRious({
+          element: canvas,
+          value: String.fromCharCode.apply(null, secretKeyBytes),
+          size: 120,
+          level: 'H',
+          mime: 'image/png'
+        });
+
         return {
-          url: `https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encoded}&color=007bff&bgcolor=ffffff`,
-          compact: base64Data,
-          full: base58Text
+          canvas: canvas,
+          dataUrl: canvas.toDataURL('image/png'),
+          compact: btoa(String.fromCharCode.apply(null, secretKeyBytes)),
+          full: base58Text,
+          bytes: secretKeyBytes
         };
       } catch (e) {
-        console.warn('MicroQR generation failed:', e);
+        console.warn('QR generation failed:', e);
         return null;
       }
     }
@@ -241,14 +251,14 @@
         return;
       }
       const result = await generateShortcodeFromPassword(password);
-      const qrImg = result.qr && result.qr.url ? `<img src="${result.qr.url}" style="max-width: 120px; border: 1px solid #ddd; border-radius: 4px;" alt="MicroQR" loading="lazy" title="Bitpacked hex data"/>` : '';
+      const qrImg = result.qr && result.qr.dataUrl ? `<img src="${result.qr.dataUrl}" style="max-width: 120px; border: 1px solid #ddd; border-radius: 4px;" alt="MicroQR" title="Raw 32-byte binary"/>` : '';
       const html = `
         <div class="result success">
           <h3>✓ Your Shortcode (Generated Instantly)</h3>
           <div style="display: flex; gap: 20px; align-items: flex-start;">
             <div style="text-align: center;">
               ${qrImg}
-              <div style="font-size: 10px; color: #999; margin-top: 8px;">MicroQR<br>(44-char Base64)</div>
+              <div style="font-size: 10px; color: #999; margin-top: 8px;">Binary QR<br>(32 bytes)</div>
             </div>
             <div style="flex: 1;">
               <div class="shortcode-text-compact" style="margin-bottom: 8px;"><strong>Share this Base58:</strong><br>${result.base58}</div>
@@ -256,7 +266,7 @@
               <button class="small" onclick="copyToClipboard('${result.base58}')">Copy Base58</button>
             </div>
           </div>
-          <span style="color: #666; font-size: 12px; margin-top: 12px; display: block;">📱 Share the Base58 code. MicroQR encodes raw 32-byte key as bitpacked Base64 for efficient scanning.</span>
+          <span style="color: #666; font-size: 12px; margin-top: 12px; display: block;">📱 QR encodes raw 32-byte key directly. Scan with camera to auto-fill shortcode.</span>
         </div>
       `;
       document.getElementById('gen-result').innerHTML = html;
@@ -288,15 +298,19 @@
         const senderPubkey = window.nostrTools.getPublicKey(senderSecret);
 
         let recipientSecretBytes;
-        if (/^[A-Za-z0-9+/=]+$/.test(shortcodeInput)) {
-          try {
+        try {
+          if (/^[A-Za-z0-9+/=]+$/.test(shortcodeInput)) {
             const binaryString = atob(shortcodeInput);
             recipientSecretBytes = new Uint8Array(binaryString.split('').map(c => c.charCodeAt(0)));
-          } catch (e) {
+          } else {
             recipientSecretBytes = fromBase58(shortcodeInput);
           }
-        } else {
+        } catch (e) {
           recipientSecretBytes = fromBase58(shortcodeInput);
+        }
+        if (!recipientSecretBytes || recipientSecretBytes.length !== 32) {
+          showResult('send-result', 'Invalid shortcode format', 'error');
+          return;
         }
         const recipientPubkey = window.nostrTools.getPublicKey(recipientSecretBytes);
 
@@ -372,7 +386,7 @@
           }));
 
         if (messages.length === 0) {
-          const qrImg = result.qr && result.qr.url ? `<img src="${result.qr.url}" style="max-width: 100px; border: 1px solid #ddd; border-radius: 4px;" alt="MicroQR" loading="lazy"/>` : '';
+          const qrImg = result.qr && result.qr.dataUrl ? `<img src="${result.qr.dataUrl}" style="max-width: 100px; border: 1px solid #ddd; border-radius: 4px;" alt="QR Code"/>` : '';
           showResult('read-result', `<h3>No messages yet</h3><strong>Your shortcode to share:</strong><div style="margin-top: 12px; display: flex; gap: 12px;"><div style="text-align: center;">${qrImg}</div><div><div class="shortcode-text-compact"><strong>Base58:</strong><br>${result.base58}</div></div></div>`, 'success');
         } else {
           let html = `<h3>📨 Messages (${messages.length})</h3>`;
