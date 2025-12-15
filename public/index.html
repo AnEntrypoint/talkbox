@@ -130,8 +130,9 @@
     async function generateShortcodeFromPassword(password) {
       if (!password) return '';
       const keypair = await deriveKeypair(password);
+      // Use full public key as shortcode (not truncated)
       const publicKeyBase64 = btoa(String.fromCharCode(...keypair.publicKey));
-      return publicKeyBase64.substring(0, 16);
+      return publicKeyBase64;
     }
 
     async function liveGenerateShortcode() {
@@ -167,6 +168,9 @@
         return;
       }
       try {
+        // We need to derive the recipient's public key from the shortcode
+        // But shortcode is truncated, so we need another approach
+        // For now, we'll send the shortcode and let the server handle it
         const response = await fetch(`${API_URL}/send`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
