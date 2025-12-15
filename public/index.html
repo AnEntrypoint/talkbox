@@ -95,7 +95,7 @@
   </div>
 
   <script>
-    // Connected to Cloudflare Workers backend
+    // Connected to Cloudflare Workers backend - v2
     let API_URL = window.location.origin;
 
     // Check URL parameters first (highest priority)
@@ -118,21 +118,25 @@
       event.target.classList.add('active');
     }
 
+    async function generateShortcodeFromPassword(password) {
+      if (!password) return '';
+      // Simple hash-based shortcode generation (matches server)
+      const encoder = new TextEncoder();
+      const data = encoder.encode(password);
+      const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      const base64 = btoa(String.fromCharCode(...hashArray));
+      return base64;
+    }
+
     async function deriveKeypair(password) {
+      // For encryption, use NaCl with hash as seed
       const encoder = new TextEncoder();
       const data = encoder.encode(password);
       const hashBuffer = await crypto.subtle.digest('SHA-256', data);
       const seed = new Uint8Array(hashBuffer);
       const keypair = nacl.box.keyPair.fromSecretKey(seed.slice(0, 32));
       return keypair;
-    }
-
-    async function generateShortcodeFromPassword(password) {
-      if (!password) return '';
-      const keypair = await deriveKeypair(password);
-      // Use full public key as shortcode (not truncated)
-      const publicKeyBase64 = btoa(String.fromCharCode(...keypair.publicKey));
-      return publicKeyBase64;
     }
 
     async function liveGenerateShortcode() {

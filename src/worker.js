@@ -1,35 +1,18 @@
-import { getPublicKey } from 'nostr-tools';
 import NostrRelayAdapter from './adapters/nostr-relay.js';
 
 const adapter = new NostrRelayAdapter();
 
 /**
- * Derive keypair from password using Web Crypto API (matches client-side)
- * Must match: generateShortcodeFromPassword in public/index.html
+ * Generate shortcode from password using Web Crypto API (Cloudflare Workers compatible)
+ * Must match the client-side implementation in public/index.html
+ * Simple SHA256 hash-based shortcode
  */
-async function deriveKeypair(password) {
+async function generateShortcode(password) {
   const encoder = new TextEncoder();
   const data = encoder.encode(password);
   const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-  const seed = new Uint8Array(hashBuffer);
-
-  // Use nostr-tools to derive keypair from seed
-  const secretKey = seed.slice(0, 32);
-  const publicKey = getPublicKey(secretKey);
-
-  return { secretKey, publicKey };
-}
-
-/**
- * Generate shortcode from password using Web Crypto API (Cloudflare Workers compatible)
- * Must match the client-side implementation in public/index.html
- */
-async function generateShortcode(password) {
-  const { publicKey } = await deriveKeypair(password);
-
-  // Convert public key to base64 - use full key as shortcode (not truncated)
-  const publicKeyArray = Array.from(publicKey);
-  const base64 = btoa(String.fromCharCode(...publicKeyArray));
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  const base64 = btoa(String.fromCharCode(...hashArray));
   return base64;
 }
 
