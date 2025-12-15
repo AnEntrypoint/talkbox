@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Talkbox - Secure Message Exchange</title>
   <script src="https://cdn.jsdelivr.net/npm/tweetnacl@1.0.3/nacl-fast.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/qrcode-light@latest/dist/qrcode.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
   <script>
     window.nostrToolsReady = import('https://esm.sh/nostr-tools@2.19.3').then(mod => {
       window.nostrTools = mod;
@@ -147,17 +147,15 @@
       return html.join('');
     }
 
-    function generateQRCode(base58Text) {
+    async function generateQRCode(base58Text) {
       try {
-        const qr = new QRCode({
-          text: base58Text,
+        const url = await QRCode.toDataURL(base58Text, {
           width: 200,
-          height: 200,
-          colorDark: '#007bff',
-          colorLight: '#ffffff',
-          correctLevel: QRCode.CorrectLevel.H
+          margin: 2,
+          color: { dark: '#007bff', light: '#ffffff' },
+          errorCorrectionLevel: 'H'
         });
-        return qr.createDataURL();
+        return url;
       } catch (e) {
         console.warn('QR generation failed:', e);
         return null;
@@ -189,7 +187,7 @@
 
       const base58 = toBase58(secretKey);
       const visual = generateVisualGrid(secretKey, true);
-      const qr = generateQRCode(base58);
+      const qr = await generateQRCode(base58);
 
       return { hex: publicKey, base58, visual, qr, bytes: secretKey };
     }
