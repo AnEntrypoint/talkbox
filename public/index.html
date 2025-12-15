@@ -486,13 +486,24 @@
 
       if (code) {
         try {
-          const bytes = Uint8Array.from(atob(code.data), c => c.charCodeAt(0));
+          const decoded = atob(code.data);
+          const bytes = Uint8Array.from(decoded, c => c.charCodeAt(0));
+
+          if (bytes.length !== 32) {
+            console.warn('QR contains', bytes.length, 'bytes, expected 32');
+            showResult('send-result', 'Invalid QR: wrong size (' + bytes.length + ' bytes)', 'error');
+            requestAnimationFrame(() => scanQRFrame(video));
+            return;
+          }
+
           const shortcode = toBase58(bytes);
           document.getElementById('send-shortcode').value = shortcode;
           stopQRScanner();
-          showResult('send-result', '✓ QR code scanned successfully!', 'success');
+          showResult('send-result', '✓ QR code scanned: ' + shortcode.substring(0, 8) + '...', 'success');
         } catch (e) {
-          showResult('send-result', 'Invalid QR code data', 'error');
+          console.error('Scan error:', e.message);
+          showResult('send-result', 'Failed to decode QR: ' + e.message, 'error');
+          requestAnimationFrame(() => scanQRFrame(video));
         }
       } else {
         requestAnimationFrame(() => scanQRFrame(video));
