@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Talkbox - Secure Message Exchange</title>
   <script src="https://cdn.jsdelivr.net/npm/tweetnacl@1.0.3/nacl-fast.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/qrcode-light@latest/dist/qrcode.min.js"></script>
   <script>
     window.nostrToolsReady = import('https://esm.sh/nostr-tools@2.19.3').then(mod => {
       window.nostrTools = mod;
@@ -146,8 +147,25 @@
       return html.join('');
     }
 
+    function generateQRCode(base58Text) {
+      try {
+        const qr = new QRCode({
+          text: base58Text,
+          width: 200,
+          height: 200,
+          colorDark: '#007bff',
+          colorLight: '#ffffff',
+          correctLevel: QRCode.CorrectLevel.H
+        });
+        return qr.createDataURL();
+      } catch (e) {
+        console.warn('QR generation failed:', e);
+        return null;
+      }
+    }
+
     async function generateShortcodeFromPassword(password) {
-      if (!password) return { hex: '', base58: '', visual: '' };
+      if (!password) return { hex: '', base58: '', visual: '', qr: null };
 
       // Wait for nostr-tools to be loaded
       let attempts = 0;
@@ -158,7 +176,7 @@
 
       if (!window.nostrTools) {
         console.error('Failed to load nostr-tools');
-        return { hex: '', base58: '', visual: '' };
+        return { hex: '', base58: '', visual: '', qr: null };
       }
 
       // Derive Nostr Ed25519 public key from password
@@ -171,8 +189,9 @@
 
       const base58 = toBase58(secretKey);
       const visual = generateVisualGrid(secretKey, true);
+      const qr = generateQRCode(base58);
 
-      return { hex: publicKey, base58, visual, bytes: secretKey };
+      return { hex: publicKey, base58, visual, qr, bytes: secretKey };
     }
 
     async function deriveKeypair(password) {
@@ -192,18 +211,19 @@
         return;
       }
       const result = await generateShortcodeFromPassword(password);
+      const qrImg = result.qr ? `<img src="${result.qr}" style="max-width: 150px; border-radius: 4px;" alt="Shortcode QR"/>` : '';
       const html = `
         <div class="result success">
           <h3>✓ Your Shortcode (Generated Instantly)</h3>
-          <div class="shortcode-container">
-            <div class="shortcode-visual compact">${result.visual}</div>
+          <div style="display: flex; gap: 16px; align-items: flex-start;">
+            <div>${qrImg}</div>
             <div style="flex: 1;">
               <div class="shortcode-text-compact" style="margin-bottom: 8px;"><strong>Base58:</strong><br>${result.base58}</div>
               <button class="small" onclick="copyToClipboard('${result.hex}')">Copy Hex</button>
               <button class="small" onclick="copyToClipboard('${result.base58}')">Copy Base58</button>
             </div>
           </div>
-          <span style="color: #666; font-size: 13px; margin-top: 12px; display: block;">Share the visual QR or Base58 code with others</span>
+          <span style="color: #666; font-size: 13px; margin-top: 12px; display: block;">Share the QR code (scannable at angles) or Base58 with others</span>
         </div>
       `;
       document.getElementById('gen-result').innerHTML = html;
@@ -297,7 +317,8 @@
           }));
 
         if (messages.length === 0) {
-          showResult('read-result', `<h3>No messages yet</h3><br><strong>Your shortcode to share:</strong><div class="shortcode-container"><div class="shortcode-visual compact">${result.visual}</div><div style="flex: 1;"><div class="shortcode-text-compact"><strong>Base58:</strong><br>${result.base58}</div></div></div>`, 'success');
+          const qrImg = result.qr ? `<img src="${result.qr}" style="max-width: 150px; border-radius: 4px; margin-bottom: 12px;" alt="Shortcode QR"/>` : '';
+          showResult('read-result', `<h3>No messages yet</h3><br><strong>Your shortcode to share:</strong><div style="margin-top: 12px;">${qrImg}<div class="shortcode-text-compact"><strong>Base58:</strong><br>${result.base58}</div></div>`, 'success');
         } else {
           let html = `<h3>📨 Messages (${messages.length})</h3>`;
           messages.forEach(msg => {
