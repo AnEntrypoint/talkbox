@@ -42,6 +42,11 @@
     .message-text { color: #333; font-size: 14px; word-break: break-word; margin-bottom: 6px; }
     .message-time { color: #999; font-size: 12px; }
     .info { background: #e3f2fd; color: #1565c0; padding: 12px; border-radius: 4px; margin-bottom: 20px; font-size: 14px; line-height: 1.5; }
+    .shortcode-container { display: flex; gap: 16px; align-items: center; }
+    .shortcode-visual { display: grid; grid-template-columns: repeat(16, 1fr); gap: 1px; padding: 8px; background: #ddd; border-radius: 4px; }
+    .shortcode-visual.compact { grid-template-columns: repeat(8, 1fr); }
+    .pixel { width: 8px; height: 8px; border-radius: 1px; }
+    .shortcode-text-compact { font-family: monospace; font-size: 12px; color: #007bff; word-break: break-all; line-height: 1.4; }
   </style>
 </head>
 <body>
@@ -110,8 +115,39 @@
       event.target.classList.add('active');
     }
 
+    function toBase58(bytes) {
+      const alphabet = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+      let num = 0n;
+      for (let i = 0; i < bytes.length; i++) {
+        num = num * 256n + BigInt(bytes[i]);
+      }
+      if (num === 0n) return '1';
+      let result = '';
+      while (num > 0n) {
+        result = alphabet[Number(num % 58n)] + result;
+        num = num / 58n;
+      }
+      for (let i = 0; i < bytes.length; i++) {
+        if (bytes[i] === 0) result = '1' + result;
+        else break;
+      }
+      return result;
+    }
+
+    function generateVisualGrid(bytes, compact = true) {
+      const cols = compact ? 8 : 16;
+      const html = [];
+      for (let i = 0; i < (compact ? 8 : 32); i++) {
+        for (let j = 0; j < 8; j++) {
+          const bit = (bytes[i] >> (7 - j)) & 1;
+          html.push(`<div class="pixel" style="background: ${bit ? '#007bff' : '#f0f0f0'}"></div>`);
+        }
+      }
+      return html.join('');
+    }
+
     async function generateShortcodeFromPassword(password) {
-      if (!password) return '';
+      if (!password) return { hex: '', base58: '', visual: '' };
 
       // Wait for nostr-tools to be loaded
       let attempts = 0;
@@ -122,22 +158,21 @@
 
       if (!window.nostrTools) {
         console.error('Failed to load nostr-tools');
-        return '';
+        return { hex: '', base58: '', visual: '' };
       }
 
-      // Derive Nostr Ed25519 public key from password (matches server)
+      // Derive Nostr Ed25519 public key from password
       const encoder = new TextEncoder();
       const data = encoder.encode(password + 'talkbox-nostr-derivation');
       const hashBuffer = await crypto.subtle.digest('SHA-256', data);
       const seed = new Uint8Array(hashBuffer);
-
-      // Get first 32 bytes as secret key
       const secretKey = seed.slice(0, 32);
-
-      // Derive public key using nostr-tools
       const publicKey = window.nostrTools.getPublicKey(secretKey);
 
-      return publicKey; // Returns hex string
+      const base58 = toBase58(secretKey);
+      const visual = generateVisualGrid(secretKey, true);
+
+      return { hex: publicKey, base58, visual, bytes: secretKey };
     }
 
     async function deriveKeypair(password) {
@@ -156,13 +191,19 @@
         document.getElementById('gen-result').innerHTML = '';
         return;
       }
-      const shortcode = await generateShortcodeFromPassword(password);
+      const result = await generateShortcodeFromPassword(password);
       const html = `
         <div class="result success">
           <h3>✓ Your Shortcode (Generated Instantly)</h3>
-          <div class="shortcode-display">${shortcode}</div>
-          <button class="small" onclick="copyToClipboard('${shortcode}')">Copy</button>
-          <span style="color: #666; font-size: 13px; margin-left: 8px;">Share this with others</span>
+          <div class="shortcode-container">
+            <div class="shortcode-visual compact">${result.visual}</div>
+            <div style="flex: 1;">
+              <div class="shortcode-text-compact" style="margin-bottom: 8px;"><strong>Base58:</strong><br>${result.base58}</div>
+              <button class="small" onclick="copyToClipboard('${result.hex}')">Copy Hex</button>
+              <button class="small" onclick="copyToClipboard('${result.base58}')">Copy Base58</button>
+            </div>
+          </div>
+          <span style="color: #666; font-size: 13px; margin-top: 12px; display: block;">Share the visual QR or Base58 code with others</span>
         </div>
       `;
       document.getElementById('gen-result').innerHTML = html;
@@ -176,9 +217,9 @@
     }
 
     async function sendMessage() {
-      const shortcode = document.getElementById('send-shortcode').value;
+      let shortcodeInput = document.getElementById('send-shortcode').value.trim();
       const message = document.getElementById('send-message').value;
-      if (!shortcode || !message) {
+      if (!shortcodeInput || !message) {
         showResult('send-result', 'Please enter shortcode and message', 'error');
         return;
       }
@@ -196,7 +237,7 @@
         const event = window.nostrTools.finalizeEvent({
           kind: 1,
           created_at: Math.floor(Date.now() / 1000),
-          tags: [['p', shortcode]],
+          tags: [['p', shortcodeInput]],
           content: message,
           pubkey: senderPubkey
         }, senderSecret);
@@ -234,7 +275,8 @@
         showResult('read-result', 'Querying Nostr relays...', 'success');
 
         await window.nostrToolsReady;
-        const shortcode = await generateShortcodeFromPassword(password);
+        const result = await generateShortcodeFromPassword(password);
+        const shortcode = result.hex;
         const relays = ['wss://relay.damus.io', 'wss://nos.lol', 'wss://nostr.wine', 'wss://relay.nostr.band'];
         const pool = new window.nostrTools.SimplePool();
 
@@ -255,7 +297,7 @@
           }));
 
         if (messages.length === 0) {
-          showResult('read-result', `<h3>No messages yet</h3>Your shortcode to share: <div class="shortcode-display">${shortcode}</div>`, 'success');
+          showResult('read-result', `<h3>No messages yet</h3><br><strong>Your shortcode to share:</strong><div class="shortcode-container"><div class="shortcode-visual compact">${result.visual}</div><div style="flex: 1;"><div class="shortcode-text-compact"><strong>Base58:</strong><br>${result.base58}</div></div></div>`, 'success');
         } else {
           let html = `<h3>📨 Messages (${messages.length})</h3>`;
           messages.forEach(msg => {
