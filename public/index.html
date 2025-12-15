@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Talkbox - Secure Message Exchange</title>
   <script src="https://cdn.jsdelivr.net/npm/tweetnacl@1.0.3/nacl-fast.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
   <script>
     window.nostrToolsReady = import('https://esm.sh/nostr-tools@2.19.3').then(mod => {
       window.nostrTools = mod;
@@ -147,17 +146,12 @@
       return html.join('');
     }
 
-    async function generateQRCode(base58Text) {
+    function generateQRCode(base58Text) {
       try {
-        const url = await QRCode.toDataURL(base58Text, {
-          width: 200,
-          margin: 2,
-          color: { dark: '#007bff', light: '#ffffff' },
-          errorCorrectionLevel: 'H'
-        });
-        return url;
+        const encoded = encodeURIComponent(base58Text);
+        return `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encoded}&color=007bff&bgcolor=ffffff`;
       } catch (e) {
-        console.warn('QR generation failed:', e);
+        console.warn('QR URL generation failed:', e);
         return null;
       }
     }
@@ -187,7 +181,7 @@
 
       const base58 = toBase58(secretKey);
       const visual = generateVisualGrid(secretKey, true);
-      const qr = await generateQRCode(base58);
+      const qr = generateQRCode(base58);
 
       return { hex: publicKey, base58, visual, qr, bytes: secretKey };
     }
@@ -209,7 +203,7 @@
         return;
       }
       const result = await generateShortcodeFromPassword(password);
-      const qrImg = result.qr ? `<img src="${result.qr}" style="max-width: 150px; border-radius: 4px;" alt="Shortcode QR"/>` : '';
+      const qrImg = result.qr ? `<img src="${result.qr}" style="max-width: 180px; border: 1px solid #ddd; border-radius: 4px;" alt="Shortcode QR" loading="lazy"/>` : '';
       const html = `
         <div class="result success">
           <h3>✓ Your Shortcode (Generated Instantly)</h3>
@@ -315,8 +309,8 @@
           }));
 
         if (messages.length === 0) {
-          const qrImg = result.qr ? `<img src="${result.qr}" style="max-width: 150px; border-radius: 4px; margin-bottom: 12px;" alt="Shortcode QR"/>` : '';
-          showResult('read-result', `<h3>No messages yet</h3><br><strong>Your shortcode to share:</strong><div style="margin-top: 12px;">${qrImg}<div class="shortcode-text-compact"><strong>Base58:</strong><br>${result.base58}</div></div>`, 'success');
+          const qrImg = result.qr ? `<img src="${result.qr}" style="max-width: 180px; border: 1px solid #ddd; border-radius: 4px; margin-bottom: 12px;" alt="Shortcode QR" loading="lazy"/>` : '';
+          showResult('read-result', `<h3>No messages yet</h3><strong>Your shortcode to share:</strong><div style="margin-top: 12px; display: flex; gap: 12px;"><div>${qrImg}</div><div><div class="shortcode-text-compact"><strong>Base58:</strong><br>${result.base58}</div></div></div>`, 'success');
         } else {
           let html = `<h3>📨 Messages (${messages.length})</h3>`;
           messages.forEach(msg => {
