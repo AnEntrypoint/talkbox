@@ -98,47 +98,38 @@ class NostrRelayAdapter {
     });
   }
 
-  /**
-   * Publish a message to all relays
-   * Message is published with pubkey of password's keypair
-   * This allows filtering by pubkey (which all relays support)
-   */
-  async publishMessage(password, message) {
+  async publishMessage(password, message, recipientPublicKey = null) {
     if (!this.pool) {
       throw new Error('Not connected. Call connect() first.');
     }
 
     const { secretKey, publicKey } = await this.deriveNostrKeys(password);
+    const tags = [
+      ['d', 'talkbox-mailbox'],
+      ['talkbox', 'v1']
+    ];
 
-    // Create Nostr event
-    // Messages are posted AS IF from the public key derived from the password
-    // This makes it easy to filter all messages for a mailbox by just using the pubkey
+    if (recipientPublicKey) {
+      tags.push(['p', recipientPublicKey]);
+    }
+
     const event = {
       kind: this.options.eventKind,
       created_at: Math.floor(Date.now() / 1000),
-      tags: [
-        ['d', 'talkbox-mailbox'], // Identifier for mailbox
-        ['talkbox', 'v1'] // Tag to mark as talkbox message
-      ],
+      tags,
       content: message,
       pubkey: publicKey
     };
 
-    // Sign event
     const signedEvent = finalizeEvent(event, secretKey);
 
-    console.log(`\n📤 Publishing to ${this.relays.length} relays...`);
+    console.log(`📤 Publishing to ${this.relays.length} relays...`);
 
-    // Publish to all relays in parallel
     const publishPromises = this.relays.map(url => {
       return (async () => {
         try {
-          // Publish returns an async iterator of promises
           const results = this.pool.publish([url], signedEvent);
-          // Wait for the promises to settle
-          for await (const result of results) {
-            // result is resolved when the relay confirms
-          }
+          for await (const result of results) {}
           return { url, ok: true };
         } catch (e) {
           console.warn(`  ⚠ ${url}: ${e.message}`);
@@ -157,6 +148,42 @@ class NostrRelayAdapter {
       publishedTo: succeeded,
       totalRelays: this.relays.length
     };
+  }
+
+  async readMessagesByRecipient(recipientPublicKey) {
+    if (!this.pool) {
+      throw new Error('Not connected. Call connect() first.');
+    }
+
+    console.log(`📥 Querying for messages to recipient...`);
+
+    const filter = {
+      kinds: [this.options.eventKind],
+      '#p': [recipientPublicKey],
+      limit: 100
+    };
+
+    try {
+      const events = await this.pool.querySync(this.relays, filter, {
+        timeout: this.options.timeout * 2
+      });
+
+      console.log(`✓ Found ${events.length} messages`);
+
+      const messages = events
+        .sort((a, b) => b.created_at - a.created_at)
+        .map(event => ({
+          messageId: event.id,
+          message: event.content,
+          timestamp: event.created_at * 1000,
+          pubkey: event.pubkey
+        }));
+
+      return messages;
+    } catch (e) {
+      console.error('Query error:', e.message);
+      return [];
+    }
   }
 
   /**

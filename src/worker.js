@@ -85,17 +85,8 @@ async function handleRequest(request, env, ctx) {
       }
 
       try {
-        // Shortcode is the recipient's Nostr public key (hex string)
-        // We publish the encrypted message to Nostr tagged for the recipient
-        // Using a temporary identity for publishing (not from recipient's key)
-
-        // For now, use a fixed publisher identity so the server doesn't leak identity
-        // In a real app, could have different sender identities
         const publisherPassword = 'talkbox-relay-publisher';
-
-        // Publish the message to Nostr
-        // The adapter will publish under the publisher's key, but tag it for the recipient
-        const result = await adapter.publishMessage(publisherPassword, message);
+        const result = await adapter.publishMessage(publisherPassword, message, shortcode);
 
         return new Response(JSON.stringify({
           success: true,
@@ -124,10 +115,10 @@ async function handleRequest(request, env, ctx) {
       }
 
       try {
+        const { publicKey } = await deriveNostrKeys(password);
         const shortcode = await generateShortcode(password);
 
-        // Query Nostr relays for messages
-        const messages = await adapter.readMessages(password);
+        const messages = await adapter.readMessagesByRecipient(publicKey);
 
         return new Response(JSON.stringify({
           success: true,
