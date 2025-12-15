@@ -6,7 +6,7 @@
   <title>Talkbox - Secure Message Exchange</title>
   <script src="https://cdn.jsdelivr.net/npm/tweetnacl@1.0.3/nacl-fast.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.4/dist/html5-qrcode.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/bwip.js@4.0.0"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bwipjs@4.0.0/dist/bwipjs-min.js"></script>
   <script>
     window.nostrToolsReady = import('https://esm.sh/nostr-tools@2.19.3').then(mod => {
       window.nostrTools = mod;
@@ -180,19 +180,23 @@
       return html.join('');
     }
 
-    function createMicroQRCode(secretKeyBytes, base58Text) {
+    async function createMicroQRCode(secretKeyBytes, base58Text) {
       try {
-        const base64Data = btoa(String.fromCharCode.apply(null, secretKeyBytes));
-        const canvas = document.createElement('canvas');
-        const container = document.createElement('div');
-        container.appendChild(canvas);
+        let attempts = 0;
+        while (typeof bwipjs === 'undefined' && attempts < 50) {
+          await new Promise(r => setTimeout(r, 100));
+          attempts++;
+        }
 
         if (typeof bwipjs === 'undefined') {
           console.warn('bwipjs library not loaded');
           return null;
         }
 
-        bwipjs.toCanvas(canvas, {
+        const base64Data = btoa(String.fromCharCode.apply(null, secretKeyBytes));
+        const canvas = document.createElement('canvas');
+
+        await bwipjs.toCanvas(canvas, {
           bcid: 'microqr',
           text: base64Data,
           scale: 2,
@@ -238,7 +242,7 @@
 
       const base58 = toBase58(secretKey);
       const visual = generateVisualGrid(secretKey, true);
-      const qrData = createMicroQRCode(secretKey, base58);
+      const qrData = await createMicroQRCode(secretKey, base58);
 
       return { hex: publicKey, base58, visual, qr: qrData, bytes: secretKey };
     }
