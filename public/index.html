@@ -5,9 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Talkbox - Secure Message Exchange</title>
   <script src="https://cdn.jsdelivr.net/npm/tweetnacl@1.0.3/nacl-fast.min.js"></script>
-  <script type="module">
-    import { getPublicKey, SimplePool, finalizeEvent } from 'https://esm.sh/nostr-tools@2.19.3';
-    window.nostrTools = { getPublicKey, SimplePool, finalizeEvent };
+  <script>
+    window.nostrToolsReady = import('https://esm.sh/nostr-tools@2.19.3').then(mod => {
+      window.nostrTools = mod;
+      return mod;
+    });
   </script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -183,6 +185,7 @@
       try {
         showResult('send-result', 'Publishing to Nostr relays...', 'success');
 
+        await window.nostrToolsReady;
         const relays = ['wss://relay.damus.io', 'wss://nos.lol', 'wss://nostr.wine', 'wss://relay.nostr.band'];
         const pool = new window.nostrTools.SimplePool();
 
@@ -225,6 +228,7 @@
       try {
         showResult('read-result', 'Querying Nostr relays...', 'success');
 
+        await window.nostrToolsReady;
         const shortcode = await generateShortcodeFromPassword(password);
         const relays = ['wss://relay.damus.io', 'wss://nos.lol', 'wss://nostr.wine', 'wss://relay.nostr.band'];
         const pool = new window.nostrTools.SimplePool();
