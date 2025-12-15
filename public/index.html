@@ -6,9 +6,8 @@
   <title>Talkbox - Secure Message Exchange</title>
   <script src="https://cdn.jsdelivr.net/npm/tweetnacl@1.0.3/nacl-fast.min.js"></script>
   <script type="module">
-    // Import nostr-tools for Ed25519 key derivation
-    import { getPublicKey } from 'https://esm.sh/nostr-tools@2.19.3';
-    window.nostrTools = { getPublicKey };
+    import { getPublicKey, SimplePool, finalizeEvent } from 'https://esm.sh/nostr-tools@2.19.3';
+    window.nostrTools = { getPublicKey, SimplePool, finalizeEvent };
   </script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -100,21 +99,7 @@
   </div>
 
   <script>
-    // Connected to Cloudflare Workers backend - v2
-    let API_URL = window.location.origin;
-
-    // Check URL parameters first (highest priority)
-    const params = new URLSearchParams(window.location.search);
-    if (params.has('api')) {
-      API_URL = params.get('api');
-    } else if (window.location.hostname.includes('github.io')) {
-      // For GitHub Pages, use Cloudflare Workers
-      API_URL = 'https://talkbox.almagestfraternite.workers.dev';
-    } else if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-      // For localhost development
-      API_URL = 'http://localhost:8000';
-    }
-    console.log('API URL:', API_URL);
+    console.log('Talkbox - 100% client-side, no backend needed');
 
     function switchTab(tab) {
       document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
@@ -196,24 +181,39 @@
         return;
       }
       try {
-        // We need to derive the recipient's public key from the shortcode
-        // But shortcode is truncated, so we need another approach
-        // For now, we'll send the shortcode and let the server handle it
-        const response = await fetch(`${API_URL}/send`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ shortcode, message })
-        });
-        const data = await response.json();
-        if (data.success) {
-          document.getElementById('send-message').value = '';
-          showResult('send-result', '✓ Message sent successfully!', 'success');
-        } else {
-          showResult('send-result', 'Error: ' + (data.error || 'Failed to send'), 'error');
-        }
+        showResult('send-result', 'Publishing to Nostr relays...', 'success');
+
+        const relays = ['wss://relay.damus.io', 'wss://nos.lol', 'wss://nostr.wine', 'wss://relay.nostr.band'];
+        const pool = new window.nostrTools.SimplePool();
+
+        const senderPassword = 'talkbox-sender-' + Math.random();
+        const senderSecret = await deriveSecret(senderPassword);
+        const senderPubkey = window.nostrTools.getPublicKey(senderSecret);
+
+        const event = window.nostrTools.finalizeEvent({
+          kind: 1,
+          created_at: Math.floor(Date.now() / 1000),
+          tags: [['p', shortcode]],
+          content: message,
+          pubkey: senderPubkey
+        }, senderSecret);
+
+        const ps = relays.map(r => pool.publish([r], event).catch(() => {}));
+        await Promise.all(ps);
+        pool.close(relays);
+
+        document.getElementById('send-message').value = '';
+        showResult('send-result', '✓ Message sent successfully!', 'success');
       } catch (e) {
         showResult('send-result', 'Error: ' + e.message, 'error');
       }
+    }
+
+    async function deriveSecret(password) {
+      const encoder = new TextEncoder();
+      const data = encoder.encode(password + 'talkbox-nostr-derivation');
+      const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+      return new Uint8Array(hashBuffer).slice(0, 32);
     }
 
     async function readMessages() {
@@ -223,22 +223,37 @@
         return;
       }
       try {
+        showResult('read-result', 'Querying Nostr relays...', 'success');
+
         const shortcode = await generateShortcodeFromPassword(password);
-        const response = await fetch(`${API_URL}/read?password=${encodeURIComponent(password)}`);
-        const data = await response.json();
-        if (data.success) {
-          if (data.messages.length === 0) {
-            showResult('read-result', `<h3>No messages yet</h3>Your shortcode to share: <div class="shortcode-display">${shortcode}</div>`, 'success');
-          } else {
-            let html = `<h3>📨 Messages (${data.messages.length})</h3>`;
-            data.messages.forEach(msg => {
-              const time = new Date(msg.timestamp).toLocaleString();
-              html += `<div class="message-item"><div class="message-text">${escapeHtml(msg.message)}</div><div class="message-time">${time}</div></div>`;
-            });
-            document.getElementById('read-result').innerHTML = `<div class="result success">${html}</div>`;
-          }
+        const relays = ['wss://relay.damus.io', 'wss://nos.lol', 'wss://nostr.wine', 'wss://relay.nostr.band'];
+        const pool = new window.nostrTools.SimplePool();
+
+        const filter = {
+          kinds: [1],
+          '#p': [shortcode],
+          limit: 100
+        };
+
+        const events = await pool.querySync(relays, filter, { timeout: 5000 });
+        pool.close(relays);
+
+        const messages = events
+          .sort((a, b) => b.created_at - a.created_at)
+          .map(e => ({
+            message: e.content,
+            timestamp: e.created_at * 1000
+          }));
+
+        if (messages.length === 0) {
+          showResult('read-result', `<h3>No messages yet</h3>Your shortcode to share: <div class="shortcode-display">${shortcode}</div>`, 'success');
         } else {
-          showResult('read-result', 'Error: ' + (data.error || 'Failed to read'), 'error');
+          let html = `<h3>📨 Messages (${messages.length})</h3>`;
+          messages.forEach(msg => {
+            const time = new Date(msg.timestamp).toLocaleString();
+            html += `<div class="message-item"><div class="message-text">${escapeHtml(msg.message)}</div><div class="message-time">${time}</div></div>`;
+          });
+          document.getElementById('read-result').innerHTML = `<div class="result success">${html}</div>`;
         }
       } catch (e) {
         showResult('read-result', 'Error: ' + e.message, 'error');
