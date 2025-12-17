@@ -7,6 +7,7 @@
   <script src="nacl-fast.min.js"></script>
   <script src="qrcode.min.js"></script>
   <script src="jsqr.js"></script>
+  <script src="base32.js"></script>
   <script src="nostr-tools.js"></script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -128,43 +129,12 @@
       event.target.classList.add('active');
     }
 
-    function toBase58(bytes) {
-      const alphabet = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
-      let num = 0n;
-      for (let i = 0; i < bytes.length; i++) {
-        num = num * 256n + BigInt(bytes[i]);
-      }
-      if (num === 0n) return '1';
-      let result = '';
-      while (num > 0n) {
-        result = alphabet[Number(num % 58n)] + result;
-        num = num / 58n;
-      }
-      for (let i = 0; i < bytes.length; i++) {
-        if (bytes[i] === 0) result = '1' + result;
-        else break;
-      }
-      return result;
+    function toBase32(bytes) {
+      return base32.encode(bytes).replace(/=/g, '');
     }
 
-    function fromBase58(str) {
-      const alphabet = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
-      let num = 0n;
-      for (let i = 0; i < str.length; i++) {
-        const idx = alphabet.indexOf(str[i]);
-        if (idx === -1) throw new Error('Invalid Base58 character');
-        num = num * 58n + BigInt(idx);
-      }
-      const bytes = [];
-      while (num > 0n) {
-        bytes.unshift(Number(num & 0xFFn));
-        num = num >> 8n;
-      }
-      for (let i = 0; i < str.length; i++) {
-        if (str[i] === '1') bytes.unshift(0);
-        else break;
-      }
-      return new Uint8Array(bytes.length === 0 ? [0] : bytes);
+    function fromBase32(str) {
+      return new Uint8Array(base32.decode.asBytes(str));
     }
 
     function generateVisualGrid(bytes, compact = true) {
@@ -182,9 +152,9 @@
     function createQRCode(secretKeyBytes, base58Text) {
       try {
         const container = document.createElement('div');
-        const base64 = btoa(String.fromCharCode.apply(null, secretKeyBytes));
+        const b32 = base32.encode(secretKeyBytes).replace(/=/g, '');
         const qr = new QRCode(container, {
-          text: base64,
+          text: b32,
           width: 120,
           height: 120,
           colorDark: '#000000',
@@ -234,11 +204,11 @@
       const secretKey = seed.slice(0, 32);
       const publicKey = window.nostrTools.getPublicKey(secretKey);
 
-      const base58 = toBase58(secretKey);
+      const shortcode = toBase32(secretKey);
       const visual = generateVisualGrid(secretKey, true);
-      const qrData = createQRCode(secretKey, base58);
+      const qrData = createQRCode(secretKey, shortcode);
 
-      return { hex: publicKey, base58, visual, qr: qrData, bytes: secretKey };
+      return { hex: publicKey, base58: shortcode, visual, qr: qrData, bytes: secretKey };
     }
 
     async function deriveKeypair(password) {
@@ -306,7 +276,7 @@
           recipientSecretBytes = new Uint8Array(shortcodeInput.split('').map(c => c.charCodeAt(0)));
         } else {
           try {
-            recipientSecretBytes = fromBase58(shortcodeInput);
+            recipientSecretBytes = fromBase32(shortcodeInput);
           } catch (e) {
             showResult('send-result', 'Invalid shortcode format', 'error');
             return;
@@ -479,8 +449,7 @@
 
       if (code) {
         try {
-          const decoded = atob(code.data);
-          const bytes = Uint8Array.from(decoded, c => c.charCodeAt(0));
+          const bytes = new Uint8Array(base32.decode.asBytes(code.data));
 
           if (bytes.length !== 32) {
             console.warn('QR contains', bytes.length, 'bytes, expected 32');
@@ -489,7 +458,7 @@
             return;
           }
 
-          const shortcode = toBase58(bytes);
+          const shortcode = toBase32(bytes);
           document.getElementById('send-shortcode').value = shortcode;
           stopQRScanner();
           showResult('send-result', '✓ QR code scanned: ' + shortcode.substring(0, 8) + '...', 'success');

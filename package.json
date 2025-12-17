@@ -19,6 +19,7 @@
     "@playwright/test": "^1.57.0"
   },
   "dependencies": {
+    "hi-base32": "^0.5.1",
     "jsqr": "^1.4.0"
   }
 }
