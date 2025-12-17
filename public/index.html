@@ -45,6 +45,7 @@
     .shortcode-visual.compact { grid-template-columns: repeat(8, 1fr); }
     .pixel { width: 6px; height: 6px; }
     .shortcode-text-compact { font-family: monospace; font-size: 12px; color: #0066cc; word-break: break-all; line-height: 1.4; }
+    .shortcode-link { font-variant: small-caps; text-decoration: none; color: #0066cc; font-weight: 600; word-break: break-all; }
   </style>
 </head>
 <body>
@@ -128,6 +129,19 @@
       document.getElementById(tab).classList.add('active');
       event.target.classList.add('active');
     }
+
+    function initFromUrl() {
+      const params = new URLSearchParams(window.location.search);
+      const code = params.get('code');
+      if (code) {
+        document.getElementById('send-shortcode').value = code;
+        switchTab('send');
+        const sendTab = document.querySelector('.tab[onclick*="send"]');
+        if (sendTab) sendTab.classList.add('active');
+      }
+    }
+
+    window.addEventListener('DOMContentLoaded', initFromUrl);
 
     function toBase32(bytes) {
       return base32.encode(bytes).replace(/=/g, '');
@@ -229,6 +243,7 @@
       }
       const result = await generateShortcodeFromPassword(password);
       const qrImg = result.qr && result.qr.dataUrl ? `<img src="${result.qr.dataUrl}" style="max-width: 120px; border: 1px solid #ddd; border-radius: 4px;" alt="MicroQR" title="Compact MicroQR format"/>` : '';
+      const shareUrl = `${window.location.protocol}//${window.location.host}${window.location.pathname}?code=${encodeURIComponent(result.base58)}`;
       const html = `
         <div class="result success">
           <h3>✓ Your Shortcode (Generated Instantly)</h3>
@@ -238,11 +253,11 @@
               <div style="font-size: 10px; color: #999; margin-top: 8px;">QR Code<br>(raw 32 bytes)</div>
             </div>
             <div style="flex: 1;">
-              <div class="shortcode-text-compact" style="margin-bottom: 8px;"><strong>Share this Base58:</strong><br>${result.base58}</div>
-              <button class="small" onclick="copyToClipboard('${result.base58}')">Copy Base58</button>
+              <div style="margin-bottom: 8px;"><strong>Share this:</strong><br><a href="${shareUrl}" class="shortcode-link">${result.base58}</a></div>
+              <button class="small" onclick="copyToClipboard('${result.base58}')">Copy</button>
             </div>
           </div>
-          <span style="color: #666; font-size: 12px; margin-top: 12px; display: block;">📱 QR Code encodes raw 32-byte key (MicroQR max is 15 bytes). Scan with camera to auto-fill shortcode.</span>
+          <span style="color: #666; font-size: 12px; margin-top: 12px; display: block;">📱 QR Code encodes raw 32-byte key. Scan with camera to auto-fill shortcode.</span>
         </div>
       `;
       document.getElementById('gen-result').innerHTML = html;
