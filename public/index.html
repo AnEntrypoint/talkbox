@@ -165,6 +165,9 @@
 
     function createQRCode(urlText) {
       try {
+        console.log('createQRCode input:', urlText);
+        console.log('Input length:', urlText.length);
+
         const container = document.createElement('div');
         const qr = new QRCode(container, {
           text: urlText,
@@ -177,11 +180,13 @@
 
         const canvas = container.querySelector('canvas');
         if (canvas) {
+          console.log('QR generated as canvas');
           return canvas.toDataURL('image/png');
         }
 
         const img = container.querySelector('img');
         if (img) {
+          console.log('QR generated as img');
           return img.src;
         }
 
@@ -231,6 +236,7 @@
       }
       const result = await generateShortcodeFromPassword(password);
       const shareUrl = `${window.location.protocol}//${window.location.host}${window.location.pathname}?code=${encodeURIComponent(result.base58)}`;
+      console.log('📱 QR encoding full URL:', shareUrl);
       const qrDataUrl = createQRCode(shareUrl);
       const qrImg = qrDataUrl ? `<img src="${qrDataUrl}" style="max-width: 140px; border: 1px solid #ddd; border-radius: 8px;" alt="QR Code"/>` : '';
       const html = `
