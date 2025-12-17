@@ -12,39 +12,39 @@
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     html, body { height: 100%; }
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #fff; min-height: 100vh; padding: 16px; color: #333; }
-    .container { max-width: 500px; margin: 0 auto; }
-    .header { margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid #ddd; }
-    .header h1 { font-size: 28px; font-weight: 700; margin-bottom: 4px; }
-    .header p { color: #666; font-size: 14px; line-height: 1.5; }
-    .tabs { display: flex; gap: 0; margin-bottom: 24px; border-bottom: 1px solid #ddd; overflow-x: auto; -webkit-overflow-scrolling: touch; }
-    .tab { flex: 1; padding: 12px 16px; border: none; background: none; cursor: pointer; font-size: 13px; font-weight: 600; color: #999; border-bottom: 2px solid transparent; margin-bottom: -1px; white-space: nowrap; min-width: fit-content; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #fafafa; min-height: 100vh; padding: 12px; color: #333; }
+    .container { max-width: 520px; margin: 0 auto; }
+    .header { margin-bottom: 28px; padding-bottom: 20px; border-bottom: 1px solid #e0e0e0; }
+    .header h1 { font-size: 32px; font-weight: 700; margin-bottom: 8px; letter-spacing: -0.5px; }
+    .header p { color: #666; font-size: 15px; line-height: 1.6; }
+    .tabs { display: flex; gap: 0; margin-bottom: 28px; border-bottom: 2px solid #e0e0e0; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    .tab { flex: 1; padding: 16px 12px; border: none; background: none; cursor: pointer; font-size: 15px; font-weight: 600; color: #999; border-bottom: 3px solid transparent; margin-bottom: -2px; white-space: nowrap; min-width: fit-content; touch-action: manipulation; }
     .tab:active { color: #0066cc; }
     .tab.active { color: #0066cc; border-color: #0066cc; }
     .tab-content { display: none; }
     .tab-content.active { display: block; }
-    .form-group { margin-bottom: 18px; }
-    label { display: block; font-size: 12px; font-weight: 600; color: #333; margin-bottom: 6px; }
-    input[type="text"], input[type="password"], textarea { width: 100%; padding: 12px; border: 1px solid #ccc; border-radius: 4px; font-size: 16px; font-family: monospace; background: #fff; }
-    input[type="text"]:focus, input[type="password"]:focus, textarea:focus { outline: none; border-color: #0066cc; }
-    textarea { resize: vertical; min-height: 90px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
-    button { width: 100%; padding: 16px; background: #0066cc; color: white; border: none; border-radius: 4px; font-size: 16px; font-weight: 600; cursor: pointer; -webkit-appearance: none; }
+    .form-group { margin-bottom: 22px; }
+    label { display: block; font-size: 14px; font-weight: 600; color: #222; margin-bottom: 8px; }
+    input[type="text"], input[type="password"], textarea { width: 100%; padding: 14px; border: 1px solid #ddd; border-radius: 8px; font-size: 16px; font-family: monospace; background: #fff; -webkit-appearance: none; appearance: none; }
+    input[type="text"]:focus, input[type="password"]:focus, textarea:focus { outline: none; border-color: #0066cc; background: #fff; box-shadow: 0 0 0 3px rgba(0,102,204,0.1); }
+    textarea { resize: vertical; min-height: 110px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; line-height: 1.5; }
+    button { width: 100%; padding: 16px; background: #0066cc; color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: 600; cursor: pointer; -webkit-appearance: none; touch-action: manipulation; min-height: 48px; display: flex; align-items: center; justify-content: center; }
     button:active { background: #0052a3; }
-    button.small { width: auto; padding: 10px 16px; font-size: 14px; margin-left: 8px; display: inline-block; }
-    .result { padding: 14px; border-radius: 4px; margin-top: 16px; font-size: 14px; border-left: 4px solid #0066cc; background: #e6f0ff; color: #0066cc; }
+    button.small { width: 100%; margin-top: 10px; padding: 14px; font-size: 15px; }
+    .result { padding: 16px; border-radius: 8px; margin-top: 20px; font-size: 14px; border-left: 4px solid #0066cc; background: #e6f0ff; color: #0066cc; line-height: 1.6; }
     .result.success { border-left-color: #28a745; background: #d4edda; color: #155724; }
     .result.error { border-left-color: #dc3545; background: #f8d7da; color: #721c24; }
-    .result h3 { font-size: 14px; margin-bottom: 6px; font-weight: 600; }
+    .result h3 { font-size: 15px; margin-bottom: 8px; font-weight: 600; }
     .shortcode-display { font-family: monospace; font-size: 14px; font-weight: bold; color: #0066cc; padding: 12px; background: #e6f0ff; border-radius: 4px; word-break: break-all; margin: 12px 0; text-align: center; }
-    .message-item { background: #f5f5f5; padding: 12px; margin-bottom: 10px; border-radius: 4px; border-left: 3px solid #0066cc; }
-    .message-text { color: #333; font-size: 14px; word-break: break-word; margin-bottom: 6px; line-height: 1.5; }
-    .message-time { color: #999; font-size: 12px; }
-    .info { background: #e6f0ff; color: #0052a3; padding: 12px; border-radius: 4px; margin-bottom: 16px; font-size: 13px; line-height: 1.5; }
+    .message-item { background: #fff; padding: 14px; margin-bottom: 12px; border-radius: 8px; border-left: 4px solid #0066cc; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+    .message-text { color: #333; font-size: 15px; word-break: break-word; margin-bottom: 8px; line-height: 1.5; }
+    .message-time { color: #999; font-size: 13px; }
+    .info { background: #e6f0ff; color: #0052a3; padding: 14px; border-radius: 8px; margin-bottom: 20px; font-size: 14px; line-height: 1.6; }
     .shortcode-container { display: flex; flex-direction: column; gap: 12px; }
-    .shortcode-visual { display: grid; grid-template-columns: repeat(16, 1fr); gap: 1px; padding: 8px; background: #f5f5f5; border-radius: 4px; }
+    .shortcode-visual { display: grid; grid-template-columns: repeat(16, 1fr); gap: 1px; padding: 12px; background: #f5f5f5; border-radius: 8px; }
     .shortcode-visual.compact { grid-template-columns: repeat(8, 1fr); }
     .pixel { width: 6px; height: 6px; }
-    .shortcode-text-compact { font-family: monospace; font-size: 12px; color: #0066cc; word-break: break-all; line-height: 1.4; }
+    .shortcode-text-compact { font-family: monospace; font-size: 13px; color: #0066cc; word-break: break-all; line-height: 1.5; }
     .shortcode-link { font-variant: small-caps; text-decoration: none; color: #0066cc; font-weight: 600; word-break: break-all; }
   </style>
 </head>
@@ -163,37 +163,26 @@
       return html.join('');
     }
 
-    function createQRCode(secretKeyBytes, base58Text) {
+    function createQRCode(urlText) {
       try {
         const container = document.createElement('div');
-        const b32 = base32.encode(secretKeyBytes).replace(/=/g, '');
         const qr = new QRCode(container, {
-          text: b32,
-          width: 120,
-          height: 120,
+          text: urlText,
+          width: 140,
+          height: 140,
           colorDark: '#000000',
           colorLight: '#ffffff',
-          correctLevel: QRCode.CorrectLevel.L
+          correctLevel: QRCode.CorrectLevel.H
         });
 
         const canvas = container.querySelector('canvas');
         if (canvas) {
-          return {
-            dataUrl: canvas.toDataURL('image/png'),
-            compact: base58Text,
-            full: base58Text,
-            bytes: secretKeyBytes
-          };
+          return canvas.toDataURL('image/png');
         }
 
         const img = container.querySelector('img');
         if (img) {
-          return {
-            dataUrl: img.src,
-            compact: base58Text,
-            full: base58Text,
-            bytes: secretKeyBytes
-          };
+          return img.src;
         }
 
         return null;
@@ -220,9 +209,8 @@
 
       const shortcode = toBase32(secretKey);
       const visual = generateVisualGrid(secretKey, true);
-      const qrData = createQRCode(secretKey, shortcode);
 
-      return { hex: publicKey, base58: shortcode, visual, qr: qrData, bytes: secretKey };
+      return { hex: publicKey, base58: shortcode, visual, bytes: secretKey };
     }
 
     async function deriveKeypair(password) {
@@ -242,22 +230,20 @@
         return;
       }
       const result = await generateShortcodeFromPassword(password);
-      const qrImg = result.qr && result.qr.dataUrl ? `<img src="${result.qr.dataUrl}" style="max-width: 120px; border: 1px solid #ddd; border-radius: 4px;" alt="MicroQR" title="Compact MicroQR format"/>` : '';
       const shareUrl = `${window.location.protocol}//${window.location.host}${window.location.pathname}?code=${encodeURIComponent(result.base58)}`;
+      const qrDataUrl = createQRCode(shareUrl);
+      const qrImg = qrDataUrl ? `<img src="${qrDataUrl}" style="max-width: 140px; border: 1px solid #ddd; border-radius: 8px;" alt="QR Code"/>` : '';
       const html = `
         <div class="result success">
-          <h3>✓ Your Shortcode (Generated Instantly)</h3>
-          <div style="display: flex; gap: 20px; align-items: flex-start;">
-            <div style="text-align: center;">
-              ${qrImg}
-              <div style="font-size: 10px; color: #999; margin-top: 8px;">QR Code<br>(raw 32 bytes)</div>
-            </div>
-            <div style="flex: 1;">
-              <div style="margin-bottom: 8px;"><strong>Share this:</strong><br><a href="${shareUrl}" class="shortcode-link">${result.base58}</a></div>
-              <button class="small" onclick="copyToClipboard('${result.base58}')">Copy</button>
-            </div>
+          <h3>✓ Your Shortcode</h3>
+          <div style="text-align: center; margin-bottom: 16px;">
+            ${qrImg}
+            <div style="font-size: 12px; color: #666; margin-top: 12px;">Share QR Code or text below</div>
           </div>
-          <span style="color: #666; font-size: 12px; margin-top: 12px; display: block;">📱 QR Code encodes raw 32-byte key. Scan with camera to auto-fill shortcode.</span>
+          <div style="margin-bottom: 14px; word-break: break-all;">
+            <a href="${shareUrl}" class="shortcode-link" style="font-size: 14px; display: inline-block; max-width: 100%;">${result.base58}</a>
+          </div>
+          <button class="small" onclick="copyToClipboard('${result.base58}')">📋 Copy Shortcode</button>
         </div>
       `;
       document.getElementById('gen-result').innerHTML = html;
@@ -464,22 +450,32 @@
 
       if (code) {
         try {
-          const bytes = new Uint8Array(base32.decode.asBytes(code.data));
+          const qrText = code.data;
+          let shortcode = null;
 
-          if (bytes.length !== 32) {
-            console.warn('QR contains', bytes.length, 'bytes, expected 32');
-            showResult('send-result', 'Invalid QR: wrong size (' + bytes.length + ' bytes)', 'error');
+          if (qrText.includes('?code=')) {
+            const url = new URL(qrText);
+            shortcode = url.searchParams.get('code');
+          } else if (qrText.length > 50) {
+            showResult('send-result', 'Invalid QR: not a shortcode link', 'error');
+            requestAnimationFrame(() => scanQRFrame(video));
+            return;
+          } else {
+            shortcode = qrText;
+          }
+
+          if (!shortcode || shortcode.length < 32) {
+            showResult('send-result', 'Invalid QR: shortcode too short', 'error');
             requestAnimationFrame(() => scanQRFrame(video));
             return;
           }
 
-          const shortcode = toBase32(bytes);
           document.getElementById('send-shortcode').value = shortcode;
           stopQRScanner();
-          showResult('send-result', '✓ QR code scanned: ' + shortcode.substring(0, 8) + '...', 'success');
+          showResult('send-result', '✓ QR scanned: ' + shortcode.substring(0, 8) + '...', 'success');
         } catch (e) {
           console.error('Scan error:', e.message);
-          showResult('send-result', 'Failed to decode QR: ' + e.message, 'error');
+          showResult('send-result', 'Failed to scan QR: ' + e.message, 'error');
           requestAnimationFrame(() => scanQRFrame(video));
         }
       } else {
