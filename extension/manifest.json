@@ -5,7 +5,8 @@
     "description": "Secure Message Exchange via Nostr",
     "permissions": [
         "storage",
-        "activeTab"
+        "activeTab",
+        "windows"
     ],
     "host_permissions": [
         "wss://*/*"

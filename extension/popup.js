@@ -58,12 +58,24 @@ function setupEventListeners() {
 
 async function initFromCurrentTab() {
     try {
+        // First check if credentials are stored (from previous popout)
+        const stored = await chrome.storage.local.get('talkbox_creds');
+        if (stored.talkbox_creds) {
+            GLOBAL_CREDS = stored.talkbox_creds;
+            updateUIWithContext(GLOBAL_CREDS);
+            readMessages();
+            return;
+        }
+
+        // Otherwise try to extract from current tab URL
         if (chrome && chrome.tabs) {
             const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
             if (tab && tab.url) {
                 const creds = getCredentialsFromUrl(tab.url);
                 if (creds.password) {
                     GLOBAL_CREDS = creds;
+                    // Store credentials for popout windows
+                    await chrome.storage.local.set({ talkbox_creds: creds });
                     updateUIWithContext(creds);
                     // Immediately trigger read
                     readMessages();
@@ -343,14 +355,33 @@ async function readMessages() {
         showResult('read-result', 'Connecting...', 'success');
 
         // Create subscription with initial query + real-time updates
-        ACTIVE_SUBSCRIPTION = SUBSCRIPTION_POOL.subscribe(RELAYS, filter, {
-            onevent: (event) => {
-                handleNewMessage(event);
-            },
-            oneose: () => {
+        console.log('Creating subscription with filter:', filter);
+        console.log('Pool methods:', Object.getOwnPropertyNames(Object.getPrototypeOf(SUBSCRIPTION_POOL)));
+
+        try {
+            ACTIVE_SUBSCRIPTION = SUBSCRIPTION_POOL.subscribe(RELAYS, filter, {
+                onevent: (event) => {
+                    console.log('Got event:', event.id);
+                    handleNewMessage(event);
+                },
+                oneose: () => {
+                    console.log('EOSE received - connection established');
+                    updateLiveIndicator(true);
+                }
+            });
+            console.log('Subscription created:', ACTIVE_SUBSCRIPTION);
+        } catch (subError) {
+            console.error('Subscription error:', subError);
+            throw subError;
+        }
+
+        // Fallback: if no EOSE after 8 seconds, mark as connected anyway
+        setTimeout(() => {
+            if (ACTIVE_SUBSCRIPTION && !document.getElementById('live-indicator')?.textContent?.includes('Live')) {
+                console.log('No EOSE received, marking as connected anyway');
                 updateLiveIndicator(true);
             }
-        });
+        }, 8000);
 
     } catch (e) {
         showResult('read-result', 'Error: ' + e.message, 'error');
