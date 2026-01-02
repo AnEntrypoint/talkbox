@@ -12,25 +12,43 @@ const RELAYS = [
 ];
 
 let GLOBAL_CREDS = null;
+let ACTIVE_SUBSCRIPTION = null;
+let SEEN_EVENT_IDS = new Set();
+let SUBSCRIPTION_POOL = null;
+let GROUP_DEBOUNCE_TIMER = null;
 
 // Initial Setup
 document.addEventListener('DOMContentLoaded', () => {
     setupTabs();
     setupEventListeners();
     initFromCurrentTab();
+
+    // Cleanup subscriptions when popup closes
+    window.addEventListener('beforeunload', () => {
+        if (ACTIVE_SUBSCRIPTION) {
+            ACTIVE_SUBSCRIPTION.close();
+        }
+        if (SUBSCRIPTION_POOL) {
+            SUBSCRIPTION_POOL.close(RELAYS);
+        }
+    });
 });
 
 function setupEventListeners() {
     document.getElementById('btn-send-message').addEventListener('click', sendMessage);
+    document.getElementById('btn-popout').addEventListener('click', openPopout);
     const groupInput = document.getElementById('private-group-input');
     if (groupInput) {
-        groupInput.addEventListener('change', () => {
-            // Reload messages when group changes
-            readMessages();
-            updateInfoText();
+        groupInput.addEventListener('input', () => {
+            clearTimeout(GROUP_DEBOUNCE_TIMER);
+            GROUP_DEBOUNCE_TIMER = setTimeout(() => {
+                readMessages();
+                updateInfoText();
+            }, 800);
         });
         groupInput.addEventListener('keyup', (e) => {
             if (e.key === 'Enter') {
+                clearTimeout(GROUP_DEBOUNCE_TIMER);
                 readMessages();
                 updateInfoText();
             }
@@ -297,92 +315,46 @@ async function readMessages() {
     }
 
     try {
-        showResult('read-result', 'Fetching messages...', 'success');
-
         const group = document.getElementById('private-group-input').value.trim();
         const result = await generateShortcodeFromPassword(GLOBAL_CREDS.password, group);
         const shortcode = result.hex; // PUBKEY
 
-        const pool = new window.nostrTools.SimplePool();
+        // Close existing subscription if any
+        if (ACTIVE_SUBSCRIPTION) {
+            ACTIVE_SUBSCRIPTION.close();
+            ACTIVE_SUBSCRIPTION = null;
+        }
+
+        // Initialize persistent pool if needed
+        if (!SUBSCRIPTION_POOL) {
+            SUBSCRIPTION_POOL = new window.nostrTools.SimplePool();
+        }
+
         const filter = {
             kinds: [1],
             '#p': [shortcode],
             limit: 100
         };
 
-        // querySync might fail in some environments, but let's try matching index.html
-        let events = [];
-        // In some ver of nostr-tools querySync exists, in others list.
-        // Index.html used querySync.
-        if (pool.querySync) {
-            events = await pool.querySync(RELAYS, filter, { timeout: 5000 });
-        } else {
-            // Fallback if version differs or env differs
-            events = await pool.query(RELAYS, filter); // simplified fallback
-        }
+        // Clear seen IDs when switching groups
+        SEEN_EVENT_IDS.clear();
 
-        pool.close(RELAYS);
+        // Show loading state
+        showResult('read-result', 'Connecting...', 'success');
 
-        const blacklist = getBlacklist();
-
-        const messages = events
-            .filter(e => !blacklist.includes(e.pubkey)) // FILTER OUT BLACKLISTED
-            .sort((a, b) => b.created_at - a.created_at)
-            .map(e => ({
-                message: e.content,
-                timestamp: e.created_at * 1000,
-                pubkey: e.pubkey
-            }));
-
-        if (messages.length === 0) {
-            showResult('read-result', 'No messages found.', 'success');
-        } else {
-            // We need to attach event listeners to dynamic buttons, so we can't just set innerHTML string easily for functions.
-            // We will build DOM elements.
-            const container = document.createElement('div');
-            container.className = 'result success';
-            const h3 = document.createElement('h3');
-            h3.innerText = `📨 Messages (${messages.length})`;
-            container.appendChild(h3);
-
-            messages.forEach(msg => {
-                const time = new Date(msg.timestamp).toLocaleString();
-
-                const item = document.createElement('div');
-                item.className = 'message-item';
-
-                const text = document.createElement('div');
-                text.className = 'message-text';
-                text.innerText = msg.message; // Safe innerText
-
-                const meta = document.createElement('div');
-                meta.className = 'message-time';
-                meta.innerText = time;
-
-                const blockBtn = document.createElement('button');
-                blockBtn.className = 'small block-btn';
-                blockBtn.innerText = '🚫 Block Sender';
-                blockBtn.style.background = '#dc3545';
-                blockBtn.style.marginTop = '8px';
-                blockBtn.onclick = () => {
-                    if (confirm('Block this sender? You wont see messages from them again.')) {
-                        addToBlacklist(msg.pubkey);
-                        readMessages(); // Reload
-                    }
-                };
-
-                item.appendChild(text);
-                item.appendChild(meta);
-                item.appendChild(blockBtn);
-                container.appendChild(item);
-            });
-
-            document.getElementById('read-result').innerHTML = '';
-            document.getElementById('read-result').appendChild(container);
-        }
+        // Create subscription with initial query + real-time updates
+        ACTIVE_SUBSCRIPTION = SUBSCRIPTION_POOL.subscribe(RELAYS, filter, {
+            onevent: (event) => {
+                handleNewMessage(event);
+            },
+            oneose: () => {
+                updateLiveIndicator(true);
+            }
+        });
 
     } catch (e) {
         showResult('read-result', 'Error: ' + e.message, 'error');
+        updateLiveIndicator(false);
     }
 }
 
@@ -394,4 +366,114 @@ function showResult(elementId, message, type) {
 function escapeHtml(text) {
     const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
     return text.replace(/[&<>"']/g, m => map[m]);
+}
+
+async function openPopout() {
+    if (chrome && chrome.windows) {
+        chrome.windows.create({
+            url: chrome.runtime.getURL('popup.html'),
+            type: 'popup',
+            width: 400,
+            height: 600,
+            focused: true
+        });
+    }
+}
+
+function handleNewMessage(event) {
+    if (SEEN_EVENT_IDS.has(event.id)) {
+        return;
+    }
+    SEEN_EVENT_IDS.add(event.id);
+
+    const blacklist = getBlacklist();
+    if (blacklist.includes(event.pubkey)) {
+        return;
+    }
+
+    const message = {
+        message: event.content,
+        timestamp: event.created_at * 1000,
+        pubkey: event.pubkey,
+        id: event.id
+    };
+
+    appendMessageToUI(message);
+}
+
+function appendMessageToUI(msg) {
+    const container = document.getElementById('read-result');
+
+    if (!container.querySelector('.message-list')) {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'result success';
+        const h3 = document.createElement('h3');
+        h3.innerHTML = '📨 Messages <span id="live-indicator" style="font-size: 11px; margin-left: 8px;">🟢 Live</span>';
+        wrapper.appendChild(h3);
+
+        const messageList = document.createElement('div');
+        messageList.className = 'message-list';
+        wrapper.appendChild(messageList);
+
+        container.innerHTML = '';
+        container.appendChild(wrapper);
+    }
+
+    const messageList = container.querySelector('.message-list');
+    const time = new Date(msg.timestamp).toLocaleString();
+
+    const item = document.createElement('div');
+    item.className = 'message-item';
+    item.dataset.eventId = msg.id;
+
+    const text = document.createElement('div');
+    text.className = 'message-text';
+    text.innerText = msg.message;
+
+    const meta = document.createElement('div');
+    meta.className = 'message-time';
+    meta.innerText = time;
+
+    const blockBtn = document.createElement('button');
+    blockBtn.className = 'small block-btn';
+    blockBtn.innerText = '🚫 Block Sender';
+    blockBtn.style.background = '#dc3545';
+    blockBtn.style.marginTop = '8px';
+    blockBtn.onclick = () => {
+        if (confirm('Block this sender? You wont see messages from them again.')) {
+            addToBlacklist(msg.pubkey);
+            item.remove();
+            updateMessageCount();
+        }
+    };
+
+    item.appendChild(text);
+    item.appendChild(meta);
+    item.appendChild(blockBtn);
+
+    messageList.insertBefore(item, messageList.firstChild);
+    updateMessageCount();
+}
+
+function updateLiveIndicator(isLive) {
+    const indicator = document.getElementById('live-indicator');
+    if (indicator) {
+        indicator.innerHTML = isLive ? '🟢 Live' : '🔴 Offline';
+    }
+}
+
+function updateMessageCount() {
+    const messageList = document.querySelector('.message-list');
+    if (messageList) {
+        const count = messageList.querySelectorAll('.message-item').length;
+        const h3 = document.querySelector('#read-result h3');
+        if (h3) {
+            const indicator = document.getElementById('live-indicator');
+            if (indicator) {
+                h3.innerHTML = `📨 Messages (${count}) <span id="live-indicator" style="font-size: 11px; margin-left: 8px;">${indicator.innerHTML}</span>`;
+            } else {
+                h3.innerHTML = `📨 Messages (${count})`;
+            }
+        }
+    }
 }
