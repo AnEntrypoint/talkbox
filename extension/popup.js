@@ -11,6 +11,14 @@ const RELAYS = [
     'wss://relay.current.fyi'
 ];
 
+// Relays that allow open publishing (no auth required)
+const PUBLISH_RELAYS = [
+    'wss://relay.damus.io',
+    'wss://nos.lol',
+    'wss://nostr-pub.wellorder.net',
+    'wss://relay.current.fyi'
+];
+
 let GLOBAL_CREDS = null;
 let ACTIVE_SUBSCRIPTION = null;
 let SEEN_EVENT_IDS = new Set();
@@ -290,7 +298,7 @@ async function sendMessage() {
             pubkey: sender.pubkey
         }, sender.secret);
 
-        const publishPromises = RELAYS.map(async r => {
+        const publishPromises = PUBLISH_RELAYS.map(async r => {
             try {
                 const pubs = pool.publish([r], event);
                 let published = false;
@@ -299,14 +307,14 @@ async function sendMessage() {
                 }
                 return published;
             } catch (e) {
-                console.error('Publish error:', e);
+                console.error('Publish error on', r, ':', e);
                 return false;
             }
         });
 
         await Promise.all(publishPromises);
         await new Promise(r => setTimeout(r, 500));
-        pool.close(RELAYS);
+        pool.close(PUBLISH_RELAYS);
 
         document.getElementById('send-message').value = '';
         showResult('send-result', '✓ Sent!', 'success');
