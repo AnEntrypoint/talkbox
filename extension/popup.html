@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Talkbox</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="lib/nacl-fast.min.js"></script>
+    <script src="lib/qrcode.min.js"></script>
+    <script src="lib/jsqr.js"></script>
+    <script src="lib/base32.js"></script>
+    <script src="lib/nostr-tools.js"></script>
+    <script src="popup.js" defer></script>
+</head>
+
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Talkbox</h1>
+            <p>Secure Message Exchange (Chrome Extension)</p>
+        </div>
+
+        <div class="context-controls" style="padding: 0 15px 10px 15px;">
+            <label for="private-group-input"
+                style="display:block; font-size: 12px; color: #666; margin-bottom: 4px;">Private Group
+                (Optional)</label>
+            <input type="text" id="private-group-input" placeholder="Main Thread"
+                style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+        </div>
+
+        <div class="tabs">
+            <button class="tab active" id="tab-send">1. Send</button>
+            <button class="tab" id="tab-read">2. Read</button>
+        </div>
+
+        <!-- Send Tab -->
+        <div id="content-send" class="tab-content active">
+            <div class="info" id="send-info">
+                Initializing...
+            </div>
+            <div class="form-group">
+                <textarea id="send-message" placeholder="What do you want to say?"
+                    style="min-height: 120px;"></textarea>
+            </div>
+            <button id="btn-send-message">Send</button>
+            <div id="send-result"></div>
+        </div>
+
+        <!-- Read Tab -->
+        <div id="content-read" class="tab-content">
+            <div id="read-result">Loading...</div>
+        </div>
+    </div>
+</body>
+
+</html>
