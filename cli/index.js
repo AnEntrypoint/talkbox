@@ -51,20 +51,35 @@ async function main() {
         env: process.env
     });
 
-    let outputBuffer = '';
-    let flushTimeout = null;
+    // Serial queue for Nostr publishing to guarantee ordering
+    const publishQueue = [];
+    let isProcessingQueue = false;
+
+    async function processQueue() {
+        if (isProcessingQueue || publishQueue.length === 0) return;
+        isProcessingQueue = true;
+        while (publishQueue.length > 0) {
+            const data = publishQueue.shift();
+            try {
+                await talkbox.post(data, {
+                    encrypt: true,
+                    kind: 20002,
+                    client: 'talkbox-cli-terminal'
+                });
+            } catch (e) {
+                // Silently continue for ephemeral order
+            }
+        }
+        isProcessingQueue = false;
+    }
 
     async function sendOutput(data) {
-        talkbox.post(data, {
-            encrypt: true,
-            kind: 20002,
-            client: 'talkbox-cli-terminal'
-        }).then(() => {
-            // console.log(`[DEBUG] Broadcast success (${data.length} bytes)`);
-        }).catch((err) => {
-            console.error('[!] Broadcast error:', err.message);
-        });
+        publishQueue.push(data);
+        processQueue();
     }
+
+    let outputBuffer = '';
+    let flushTimeout = null;
 
     function flushOutput() {
         if (!outputBuffer) return;
@@ -76,14 +91,14 @@ async function main() {
     }
 
     term.onData((data) => {
-        // Output to local terminal
+        // Local terminal echo/output
         process.stdout.write(data);
 
-        // Remote output buffer
+        // Push to buffer for remote delivery
         outputBuffer += data;
 
         if (!flushTimeout) {
-            flushTimeout = setTimeout(flushOutput, 25); // Slightly larger window for stability
+            flushTimeout = setTimeout(flushOutput, 50); // Improved batching window
         }
     });
 
@@ -96,6 +111,7 @@ async function main() {
         try {
             process.stdin.setRawMode(true);
             process.stdin.on('data', (data) => {
+                // Local stdin -> PTY
                 term.write(data.toString());
             });
 
@@ -111,6 +127,7 @@ async function main() {
     // Subscribe to events (kind 20001 for input, 20004 for resize)
     const sub = await talkbox.subscribe(async (msg) => {
         if (msg.event.kind === 20001) {
+            // REMOTE input -> PTY
             term.write(msg.content);
         } else if (msg.event.kind === 20004) {
             try {
@@ -123,13 +140,14 @@ async function main() {
     }, {
         kinds: [20001, 20004],
         decrypt: true,
-        since: Math.floor(Date.now() / 1000) - 60 // 1 minute window for safety
+        since: Math.floor(Date.now() / 1000) // Strict ephemerality (no drift allowance)
     });
 
     if (spinner.isSpinning) spinner.succeed('Nostr Link Established. Remote terminal ready.');
 
     console.log(`[✓] Terminal Identity: ${topicPubkey}`);
     console.log(`[!] Mode: Fully Encrypted & Ephemeral (Real-time only)`);
+    console.log(`[!] Zero state isolation active: only new events processed.`);
     console.log(`[!] Listening for local and remote commands...`);
 
     term.onExit(({ exitCode, signal }) => {

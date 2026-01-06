@@ -221,6 +221,8 @@
             if (!password) return;
 
             initXterm();
+            xterm.reset();
+            xterm.clear();
             xterm.write('\x1b[32m[SYSTEM] Establishing Nostr link...\x1b[0m\r\n');
             statusEl.textContent = 'CONNECTING...';
             statusEl.className = 'offline';
@@ -247,12 +249,12 @@
                 const filter = {
                     kinds: [20002],
                     '#p': [pubkey],
-                    since: Math.floor(Date.now() / 1000) - 30
+                    since: Math.floor(Date.now() / 1000)
                 };
 
                 console.log('[DEBUG] Subscribing with filter:', filter);
 
-                sub = pool.subscribeMany(RELAYS, filter, {
+                sub = pool.subscribeMany(RELAYS, [filter], {
                     onevent(event) {
                         try {
                             const decrypted = NT.nip44.decrypt(event.content, topicKeys.conversationKey);
@@ -314,16 +316,29 @@
         }
 
 
-
         let inputBuffer = '';
         let inputTimeout = null;
+
+        const inputQueue = [];
+        let isProcessingInput = false;
+
+        async function processInputQueue() {
+            if (isProcessingInput || inputQueue.length === 0) return;
+            isProcessingInput = true;
+            while (inputQueue.length > 0) {
+                const data = inputQueue.shift();
+                await sendActualInput(data);
+            }
+            isProcessingInput = false;
+        }
 
         function flushInput() {
             if (!inputBuffer) return;
             const data = inputBuffer;
             inputBuffer = '';
             inputTimeout = null;
-            sendActualInput(data);
+            inputQueue.push(data);
+            processInputQueue();
         }
 
         async function sendActualInput(data) {
@@ -339,7 +354,7 @@
                     pubkey: topicKeys.pubkey
                 }, topicKeys.secret);
 
-                pool.publish(RELAYS, event);
+                await Promise.all(RELAYS.map(r => pool.publish(r, event)));
             } catch (e) {
                 console.error('Send error:', e);
             }
@@ -350,8 +365,8 @@
 
             inputBuffer += input;
             if (!inputTimeout) {
-                // 10ms batching window for input
-                inputTimeout = setTimeout(flushInput, 10);
+                // 50ms batching window for input
+                inputTimeout = setTimeout(flushInput, 50);
             }
         }
 
