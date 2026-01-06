@@ -55,29 +55,89 @@ async function main() {
     let outputBuffer = '';
     let flushTimeout = null;
 
+    let rtcPeer = null;
+    let dataChannel = null;
+
+    async function sendOutput(data) {
+        if (dataChannel && dataChannel.connected) {
+            dataChannel.send(data);
+        } else {
+            talkbox.post(data, {
+                encrypt: true,
+                kind: 20002,
+                client: 'talkbox-cli-terminal'
+            }).catch(() => { });
+        }
+    }
+
     function flushOutput() {
         if (!outputBuffer) return;
         const data = outputBuffer;
         outputBuffer = '';
+        if (flushTimeout) clearTimeout(flushTimeout);
         flushTimeout = null;
-
-        // Fire and forget broadcast
-        talkbox.post(data, {
-            encrypt: true,
-            kind: 20002,
-            client: 'talkbox-cli-terminal'
-        }).catch(() => { });
+        sendOutput(data);
     }
 
-    term.onData((data) => {
-        process.stdout.write(data);
-        outputBuffer += data;
+    // Signaling handling (Kind 20003)
+    const setupWebRTC = async () => {
+        try {
+            // Check if wrtc is properly installed and available
+            const wrtc = (await import('wrtc')).default;
+            const SimplePeer = (await import('simple-peer')).default;
 
-        // Use a 15ms batching window for output to prevent relay flooding
-        if (!flushTimeout) {
-            flushTimeout = setTimeout(flushOutput, 15);
+            talkbox.subscribe(async (msg) => {
+                if (msg.event.kind === 20003) {
+                    try {
+                        const signal = JSON.parse(msg.content);
+                        if (!rtcPeer) {
+                            console.log('[RTC] Incoming signaling, initializing peer...');
+                            rtcPeer = new SimplePeer({
+                                initiator: false,
+                                wrtc: wrtc,
+                                trickle: true,
+                                config: { iceServers: [] }
+                            });
+
+                            rtcPeer.on('signal', data => {
+                                talkbox.post(JSON.stringify(data), { encrypt: true, kind: 20003 });
+                            });
+
+                            rtcPeer.on('connect', () => {
+                                console.log('[RTC] P2P Peer Connected.');
+                                dataChannel = rtcPeer;
+                            });
+
+                            rtcPeer.on('data', data => {
+                                term.write(data.toString());
+                            });
+
+                            rtcPeer.on('close', () => {
+                                console.log('[RTC] P2P Peer Closed.');
+                                dataChannel = null;
+                                rtcPeer = null;
+                            });
+
+                            rtcPeer.on('error', (err) => {
+                                console.error('[RTC] Peer Error:', err.message);
+                                dataChannel = null;
+                                rtcPeer = null;
+                            });
+                        }
+                        rtcPeer.signal(signal);
+                    } catch (e) {
+                        console.error('[RTC] Signaling error:', e.message);
+                    }
+                }
+            }, { kinds: [20003], decrypt: true, since: Math.floor(Date.now() / 1000) });
+
+            console.log('[!] WebRTC signaling ready.');
+        } catch (e) {
+            console.warn('[!] WebRTC P2P unavailable (native binaries missing/failed). Using pure Nostr relay mode.');
         }
-    });
+    };
+
+    setupWebRTC();
 
     // Subscribe to ephemeral events (kind 20001 for commands/input)
     const sub = await talkbox.subscribe(async (msg) => {
@@ -95,6 +155,7 @@ async function main() {
     // Handle graceful exit
     process.on('SIGINT', () => {
         console.log('\nClosing connections...');
+        if (rtcPeer) rtcPeer.destroy();
         talkbox.close();
         process.exit();
     });
