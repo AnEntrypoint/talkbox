@@ -8,7 +8,6 @@
     <script src="../nostr-tools.js"></script>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.css" />
     <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/simple-peer@9.11.1/simplepeer.min.js"></script>
     <style>
         body,
         html {
@@ -225,12 +224,7 @@
                         try {
                             const decrypted = NT.nip44.decrypt(event.content, topicKeys.conversationKey);
                             if (event.kind === 20002) {
-                                // Direct browser output if RTC not open
-                                if (!dataChannel || dataChannel.readyState !== 'open') {
-                                    xterm.write(decrypted);
-                                }
-                            } else if (event.kind === 20003) {
-                                handleRTCSignal(decrypted);
+                                xterm.write(decrypted);
                             }
                         } catch (e) {
                             console.error('Event processing failed', e);
@@ -242,9 +236,6 @@
                 statusEl.className = 'online';
                 xterm.write('\x1b[32m[SYSTEM] Link Established. Session streaming active.\x1b[0m\r\n');
 
-                // Attempt WebRTC Upgrade
-                initWebRTC();
-
             } catch (e) {
                 xterm.write(`\x1b[31m[ERROR] ${e.message}\x1b[0m\r\n`);
                 statusEl.textContent = 'ERROR';
@@ -255,62 +246,9 @@
         let rtcPeer = null;
         let dataChannel = null;
 
-        function initWebRTC() {
-            if (typeof SimplePeer === 'undefined') return;
-
-            xterm.write('\x1b[36m[RTC] Attempting P2P upgrade...\x1b[0m\r\n');
-
-            rtcPeer = new SimplePeer({
-                initiator: true,
-                trickle: true,
-                config: { iceServers: [] }
-            });
-
-            rtcPeer.on('signal', data => {
-                sendSignaling(data);
-            });
-
-            rtcPeer.on('connect', () => {
-                xterm.write('\x1b[36m[RTC] P2P Link Established (Zero Latency Mode).\x1b[0m\r\n\r\n');
-                dataChannel = rtcPeer;
-            });
-
-            rtcPeer.on('data', data => {
-                xterm.write(data.toString());
-            });
-
-            rtcPeer.on('close', () => {
-                xterm.write('\x1b[33m[RTC] P2P Link Lost. Falling back to Nostr.\x1b[0m\r\n');
-                dataChannel = null;
-            });
-
-            rtcPeer.on('error', err => {
-                console.warn('RTC Error', err);
-                dataChannel = null;
-            });
-        }
-
-        function handleRTCSignal(data) {
-            try {
-                const signal = JSON.parse(data);
-                if (rtcPeer) rtcPeer.signal(signal);
-            } catch (e) { }
-        }
-
-        async function sendSignaling(data) {
-            try {
-                const NT = window.NostrTools || window.nostrTools;
-                const encrypted = NT.nip44.encrypt(JSON.stringify(data), topicKeys.conversationKey);
-                const event = NT.finalizeEvent({
-                    kind: 20003,
-                    created_at: Math.floor(Date.now() / 1000),
-                    tags: [['p', topicKeys.pubkey]],
-                    content: encrypted,
-                    pubkey: topicKeys.pubkey
-                }, topicKeys.secret);
-                pool.publish(RELAYS, event);
-            } catch (e) { }
-        }
+        function initWebRTC() { }
+        function handleRTCSignal(data) { }
+        async function sendSignaling(data) { }
 
         let inputBuffer = '';
         let inputTimeout = null;
