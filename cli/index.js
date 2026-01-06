@@ -80,11 +80,14 @@ async function main() {
         }
     });
 
+    // Keep-alive even in non-TTY environments
+    process.stdin.resume();
+    const keepAlive = setInterval(() => { }, 1000000);
+
     // Local input handling
     if (process.stdin.isTTY) {
         try {
             process.stdin.setRawMode(true);
-            process.stdin.resume();
             process.stdin.on('data', (data) => {
                 term.write(data);
             });
@@ -123,6 +126,7 @@ async function main() {
     console.log(`[!] Listening for local and remote commands...`);
 
     term.onExit(({ exitCode, signal }) => {
+        clearInterval(keepAlive);
         console.log(`\n[!] Shell exited with code ${exitCode}. Closing down...`);
         if (process.stdin.isTTY) {
             try { process.stdin.setRawMode(false); } catch (e) { }
