@@ -14,20 +14,22 @@
             margin: 0;
             padding: 0;
             height: 100%;
-            background-color: #0c0c0c;
-            color: #cccccc;
+            background-color: #000;
+            color: #00ff00;
             font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
             display: flex;
             flex-direction: column;
+            overflow: hidden;
         }
 
         #terminal-header {
-            background-color: #1e1e1e;
+            background-color: #111;
             padding: 10px 20px;
             display: flex;
             justify-content: space-between;
             align-items: center;
             border-bottom: 1px solid #333;
+            z-index: 10;
         }
 
         #terminal-header h1 {
@@ -39,74 +41,88 @@
         }
 
         #auth-panel {
-            padding: 20px;
-            background-color: #161616;
-            border-bottom: 1px solid #333;
+            padding: 15px 20px;
+            background-color: #0a0a0a;
+            border-bottom: 1px solid #222;
             display: flex;
-            gap: 10px;
+            gap: 15px;
             align-items: center;
+            z-index: 10;
         }
 
-        input[type="password"],
-        input[type="text"] {
+        #auth-panel span {
+            font-size: 12px;
+            color: #888;
+            font-weight: bold;
+        }
+
+        input[type="password"] {
             background-color: #000;
             border: 1px solid #444;
             color: #00ff00;
-            padding: 8px 12px;
+            padding: 6px 12px;
             outline: none;
             font-family: inherit;
+            flex: 1;
+            max-width: 300px;
         }
 
-        input[type="password"]:focus,
-        input[type="text"]:focus {
+        input[type="password"]:focus {
             border-color: #00ff00;
         }
 
         button {
-            background-color: #00ff00;
-            color: #000;
+            background-color: #009900;
+            color: #fff;
             border: none;
-            padding: 8px 16px;
+            padding: 7px 20px;
             cursor: pointer;
             font-weight: bold;
             font-family: inherit;
             text-transform: uppercase;
+            font-size: 12px;
+            border-radius: 2px;
         }
 
         button:hover {
-            background-color: #00cc00;
+            background-color: #00bb00;
         }
 
         #terminal-container {
             flex: 1;
-            padding: 10px;
+            position: relative;
             background-color: #000;
-            overflow: hidden;
         }
 
         #xterm-container {
-            width: 100%;
-            height: 100%;
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            padding: 10px;
         }
 
-        #input-line {
-            display: none;
+        #status {
+            font-size: 11px;
+            font-weight: bold;
+            padding: 2px 8px;
+            border-radius: 3px;
+            background: #222;
         }
 
-        ::-webkit-scrollbar {
-            width: 8px;
+        .offline {
+            color: #555;
         }
 
-        ::-webkit-scrollbar-track {
-            background: #0c0c0c;
+        .online {
+            color: #00ff00;
+            border: 1px solid #00ff00;
         }
 
-        ::-webkit-scrollbar-thumb {
-            background: #333;
-        }
-
-        ::-webkit-scrollbar-thumb:hover {
-            background: #444;
+        .error {
+            color: #ff3333;
+            border: 1px solid #ff3333;
         }
     </style>
 </head>
@@ -114,13 +130,14 @@
 <body>
 
     <div id="terminal-header">
-        <h1>Talkbox Remote Terminal v1.0</h1>
-        <div id="status">OFFLINE</div>
+        <h1>Talkbox Remote Terminal (Xterm.js)</h1>
+        <div id="status" class="offline">OFFLINE</div>
     </div>
 
     <div id="auth-panel">
         <span>PASSWORD:</span>
-        <input type="password" id="password" placeholder="Terminal Secret">
+        <input type="password" id="password" placeholder="Terminal Secret"
+            onkeypress="if(event.key==='Enter') connect()">
         <button onclick="connect()">Connect</button>
     </div>
 
@@ -144,17 +161,19 @@
         const statusEl = document.getElementById('status');
         const passwordEl = document.getElementById('password');
 
-        function initTerminal() {
+        function initXterm() {
             if (xterm) return;
             xterm = new Terminal({
                 cursorBlink: true,
                 theme: {
                     background: '#000000',
                     foreground: '#00ff00',
-                    cursor: '#00ff00'
+                    cursor: '#00ff00',
+                    selectionBackground: '#333333'
                 },
                 fontFamily: 'Consolas, "Liberation Mono", Courier, monospace',
-                fontSize: 14
+                fontSize: 14,
+                allowProposedApi: true
             });
             xterm.open(document.getElementById('xterm-container'));
 
@@ -162,17 +181,19 @@
                 sendTermInput(data);
             });
 
-            xterm.writeln('Welcome to Talkbox Remote Terminal.');
-            xterm.writeln('Enter your terminal password above to begin...');
+            // Initial message
+            xterm.writeln('\x1b[32mTalkbox Virtual Terminal Ready.\x1b[0m');
+            xterm.writeln('Enter password above to establish secure Nostr link.');
         }
 
         async function connect() {
             const password = passwordEl.value;
             if (!password) return;
 
-            initTerminal();
-            xterm.write('\x1b[32m[SYSTEM] Connecting to Nostr relays...\x1b[0m\r\n');
+            initXterm();
+            xterm.write('\x1b[32m[SYSTEM] Establishing Nostr link...\x1b[0m\r\n');
             statusEl.textContent = 'CONNECTING...';
+            statusEl.className = 'offline';
 
             try {
                 const NT = window.NostrTools || window.nostrTools;
@@ -191,7 +212,7 @@
 
                 topicKeys = { secret, pubkey, conversationKey };
 
-                xterm.write(`\x1b[32m[SYSTEM] Identity derived: ${pubkey.substring(0, 12)}...\x1b[0m\r\n`);
+                xterm.write(`\x1b[32m[SYSTEM] Identity Derived: ${pubkey.substring(0, 12)}...\x1b[0m\r\n`);
 
                 sub = pool.subscribeMany(RELAYS, {
                     kinds: [20002],
@@ -209,13 +230,13 @@
                 });
 
                 statusEl.textContent = 'ONLINE';
-                statusEl.style.color = '#00ff00';
-                xterm.write('\x1b[32m[SYSTEM] Link Established. Remote terminal ready.\x1b[0m\r\n\r\n');
+                statusEl.className = 'online';
+                xterm.write('\x1b[32m[SYSTEM] Link Established. Session streaming active.\x1b[0m\r\n\r\n');
 
             } catch (e) {
                 xterm.write(`\x1b[31m[ERROR] ${e.message}\x1b[0m\r\n`);
                 statusEl.textContent = 'ERROR';
-                statusEl.style.color = '#ff3333';
+                statusEl.className = 'error';
             }
         }
 
@@ -240,7 +261,7 @@
             }
         }
 
-        window.onload = initTerminal;
+        window.onload = initXterm;
     </script>
 
 </body>

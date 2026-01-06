@@ -33,12 +33,11 @@ async function main() {
 
     const { pubkey } = await talkbox._deriveTopicKeys();
 
-    console.log(`\n[✓] Terminal Identity Derived.`);
+    console.log(`[✓] Terminal Identity Derived.`);
     console.log(`[!] Pubkey: ${pubkey}`);
     console.log(`[!] Mode: Fully Encrypted & Ephemeral (Real-time only)`);
-    console.log(`[!] Status: Listening for commands...\n`);
 
-    const spinner = ora('Initializing connection to relays...').start();
+    const spinner = ora('Connecting to Nostr network...').start();
 
     let shell = null;
 
@@ -47,10 +46,9 @@ async function main() {
         const shellCmd = process.platform === 'win32' ? 'powershell.exe' : 'sh';
         const shellArgs = process.platform === 'win32' ? ['-NoLogo', '-NoExit', '-Command', '-'] : [];
 
-        console.log(`[!] Starting persistent shell: ${shellCmd}`);
         shell = spawn(shellCmd, shellArgs, {
             stdio: ['pipe', 'pipe', 'pipe'],
-            env: process.env
+            env: { ...process.env, TERM: 'xterm-256color' } // Set TERM for TUI apps
         });
 
         shell.stdout.on('data', async (data) => {
@@ -81,16 +79,12 @@ async function main() {
 
     startShell();
 
-    // Subscribe to ephemeral events (kind 20001 for commands)
+    // Subscribe to ephemeral events (kind 20001 for commands/input)
     const sub = await talkbox.subscribe(async (msg) => {
-        spinner.stop();
-
         if (msg.event.kind === 20001) {
-            console.log(`[${new Date().toLocaleTimeString()}] > ${msg.content}`);
-
             if (shell && shell.stdin.writable) {
-                // Write command to shell stdin
-                shell.stdin.write(msg.content + '\n');
+                // Write raw input to shell stdin
+                shell.stdin.write(msg.content);
             } else {
                 console.error('[!] Shell not ready or stdin not writable');
             }

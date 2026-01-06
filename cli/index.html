@@ -6,26 +6,30 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Talkbox - Remote Terminal</title>
     <script src="../nostr-tools.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.css" />
+    <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.js"></script>
     <style>
         body,
         html {
             margin: 0;
             padding: 0;
             height: 100%;
-            background-color: #0c0c0c;
-            color: #cccccc;
+            background-color: #000;
+            color: #00ff00;
             font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
             display: flex;
             flex-direction: column;
+            overflow: hidden;
         }
 
         #terminal-header {
-            background-color: #1e1e1e;
+            background-color: #111;
             padding: 10px 20px;
             display: flex;
             justify-content: space-between;
             align-items: center;
             border-bottom: 1px solid #333;
+            z-index: 10;
         }
 
         #terminal-header h1 {
@@ -37,108 +41,88 @@
         }
 
         #auth-panel {
-            padding: 20px;
-            background-color: #161616;
-            border-bottom: 1px solid #333;
+            padding: 15px 20px;
+            background-color: #0a0a0a;
+            border-bottom: 1px solid #222;
             display: flex;
-            gap: 10px;
+            gap: 15px;
             align-items: center;
+            z-index: 10;
         }
 
-        input[type="password"],
-        input[type="text"] {
+        #auth-panel span {
+            font-size: 12px;
+            color: #888;
+            font-weight: bold;
+        }
+
+        input[type="password"] {
             background-color: #000;
             border: 1px solid #444;
             color: #00ff00;
-            padding: 8px 12px;
+            padding: 6px 12px;
             outline: none;
             font-family: inherit;
+            flex: 1;
+            max-width: 300px;
         }
 
-        input[type="password"]:focus,
-        input[type="text"]:focus {
+        input[type="password"]:focus {
             border-color: #00ff00;
         }
 
         button {
-            background-color: #00ff00;
-            color: #000;
+            background-color: #009900;
+            color: #fff;
             border: none;
-            padding: 8px 16px;
+            padding: 7px 20px;
             cursor: pointer;
             font-weight: bold;
             font-family: inherit;
             text-transform: uppercase;
+            font-size: 12px;
+            border-radius: 2px;
         }
 
         button:hover {
-            background-color: #00cc00;
+            background-color: #00bb00;
         }
 
-        #output {
+        #terminal-container {
             flex: 1;
-            padding: 20px;
-            overflow-y: auto;
-            white-space: pre-wrap;
-            word-break: break-all;
-            line-height: 1.4;
+            position: relative;
+            background-color: #000;
         }
 
-        .system-msg {
-            color: #888;
-            font-style: italic;
+        #xterm-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            padding: 10px;
         }
 
-        .command-msg {
-            color: #00ff00;
+        #status {
+            font-size: 11px;
             font-weight: bold;
+            padding: 2px 8px;
+            border-radius: 3px;
+            background: #222;
         }
 
-        .error-msg {
+        .offline {
+            color: #555;
+        }
+
+        .online {
+            color: #00ff00;
+            border: 1px solid #00ff00;
+        }
+
+        .error {
             color: #ff3333;
-        }
-
-        .success-msg {
-            color: #00ff00;
-        }
-
-        #input-line {
-            display: flex;
-            padding: 10px 20px;
-            background-color: #161616;
-            border-top: 1px solid #333;
-        }
-
-        #prompt {
-            color: #00ff00;
-            margin-right: 10px;
-            user-select: none;
-        }
-
-        #cmd-input {
-            flex: 1;
-            background: transparent;
-            border: none;
-            color: #00ff00;
-            outline: none;
-            font-family: inherit;
-            font-size: 16px;
-        }
-
-        ::-webkit-scrollbar {
-            width: 8px;
-        }
-
-        ::-webkit-scrollbar-track {
-            background: #0c0c0c;
-        }
-
-        ::-webkit-scrollbar-thumb {
-            background: #333;
-        }
-
-        ::-webkit-scrollbar-thumb:hover {
-            background: #444;
+            border: 1px solid #ff3333;
         }
     </style>
 </head>
@@ -146,21 +130,19 @@
 <body>
 
     <div id="terminal-header">
-        <h1>Talkbox Remote Terminal v1.0</h1>
-        <div id="status">OFFLINE</div>
+        <h1>Talkbox Remote Terminal (Xterm.js)</h1>
+        <div id="status" class="offline">OFFLINE</div>
     </div>
 
     <div id="auth-panel">
         <span>PASSWORD:</span>
-        <input type="password" id="password" placeholder="Terminal Secret">
+        <input type="password" id="password" placeholder="Terminal Secret"
+            onkeypress="if(event.key==='Enter') connect()">
         <button onclick="connect()">Connect</button>
     </div>
 
-    <div id="output"></div>
-
-    <div id="input-line">
-        <span id="prompt">$</span>
-        <input type="text" id="cmd-input" placeholder="Type a command and press Enter..." disabled>
+    <div id="terminal-container">
+        <div id="xterm-container"></div>
     </div>
 
     <script>
@@ -174,35 +156,52 @@
         let pool = null;
         let topicKeys = null;
         let sub = null;
+        let xterm = null;
 
-        const outputEl = document.getElementById('output');
-        const inputEl = document.getElementById('cmd-input');
         const statusEl = document.getElementById('status');
         const passwordEl = document.getElementById('password');
 
-        function log(text, className = '') {
-            const div = document.createElement('div');
-            if (className) div.className = className;
-            div.textContent = text;
-            outputEl.appendChild(div);
-            outputEl.scrollTop = outputEl.scrollHeight;
+        function initXterm() {
+            if (xterm) return;
+            xterm = new Terminal({
+                cursorBlink: true,
+                theme: {
+                    background: '#000000',
+                    foreground: '#00ff00',
+                    cursor: '#00ff00',
+                    selectionBackground: '#333333'
+                },
+                fontFamily: 'Consolas, "Liberation Mono", Courier, monospace',
+                fontSize: 14,
+                allowProposedApi: true
+            });
+            xterm.open(document.getElementById('xterm-container'));
+
+            xterm.onData(data => {
+                sendTermInput(data);
+            });
+
+            // Initial message
+            xterm.writeln('\x1b[32mTalkbox Virtual Terminal Ready.\x1b[0m');
+            xterm.writeln('Enter password above to establish secure Nostr link.');
         }
 
         async function connect() {
             const password = passwordEl.value;
             if (!password) return;
 
-            log('[SYSTEM] Connecting to relays...', 'system-msg');
+            initXterm();
+            xterm.write('\x1b[32m[SYSTEM] Establishing Nostr link...\x1b[0m\r\n');
             statusEl.textContent = 'CONNECTING...';
+            statusEl.className = 'offline';
 
             try {
                 const NT = window.NostrTools || window.nostrTools;
-                if (!NT) throw new Error('NostrTools not found. Check your internet connection or script path.');
+                if (!NT) throw new Error('NostrTools not found.');
 
                 if (pool) pool.close(RELAYS);
                 pool = new NT.SimplePool();
 
-                // Derive shared terminal identity (same as CLI)
                 const terminalUrl = `terminal://talkbox-v1/${password}`;
                 const encoder = new TextEncoder();
                 const data = encoder.encode(terminalUrl + 'talkbox-comments-v1');
@@ -213,9 +212,8 @@
 
                 topicKeys = { secret, pubkey, conversationKey };
 
-                log('[SYSTEM] Identity derived. Key: ' + pubkey.substring(0, 12) + '...', 'system-msg');
+                xterm.write(`\x1b[32m[SYSTEM] Identity Derived: ${pubkey.substring(0, 12)}...\x1b[0m\r\n`);
 
-                // Subscribe to kind 20002 (Terminal responses)
                 sub = pool.subscribeMany(RELAYS, {
                     kinds: [20002],
                     '#p': [pubkey],
@@ -224,7 +222,7 @@
                     onevent(event) {
                         try {
                             const decrypted = NT.nip44.decrypt(event.content, topicKeys.conversationKey);
-                            log(decrypted);
+                            xterm.write(decrypted);
                         } catch (e) {
                             console.error('Decryption failed', e);
                         }
@@ -232,56 +230,38 @@
                 });
 
                 statusEl.textContent = 'ONLINE';
-                statusEl.style.color = '#00ff00';
-                inputEl.disabled = false;
-                inputEl.focus();
-                log('[SYSTEM] Link Established. Remote terminal ready.', 'success-msg');
+                statusEl.className = 'online';
+                xterm.write('\x1b[32m[SYSTEM] Link Established. Session streaming active.\x1b[0m\r\n\r\n');
 
             } catch (e) {
-                log('[ERROR] ' + e.message, 'error-msg');
+                xterm.write(`\x1b[31m[ERROR] ${e.message}\x1b[0m\r\n`);
                 statusEl.textContent = 'ERROR';
-                statusEl.style.color = '#ff3333';
+                statusEl.className = 'error';
             }
         }
 
-        inputEl.addEventListener('keypress', async (e) => {
-            if (e.key === 'Enter') {
-                const cmd = inputEl.value.trim();
-                if (!cmd) return;
+        async function sendTermInput(input) {
+            if (!topicKeys || !pool) return;
 
-                log('$ ' + cmd, 'command-msg');
-                inputEl.value = '';
+            try {
+                const NT = window.NostrTools || window.nostrTools;
+                const encrypted = NT.nip44.encrypt(input, topicKeys.conversationKey);
 
-                try {
-                    const NT = window.NostrTools || window.nostrTools;
-                    const encrypted = NT.nip44.encrypt(cmd, topicKeys.conversationKey);
+                const event = NT.finalizeEvent({
+                    kind: 20001,
+                    created_at: Math.floor(Date.now() / 1000),
+                    tags: [['p', topicKeys.pubkey], ['encrypted', 'nip44']],
+                    content: encrypted,
+                    pubkey: topicKeys.pubkey
+                }, topicKeys.secret);
 
-                    const event = NT.finalizeEvent({
-                        kind: 20001, // Command
-                        created_at: Math.floor(Date.now() / 1000),
-                        tags: [
-                            ['p', topicKeys.pubkey],
-                            ['encrypted', 'nip44']
-                        ],
-                        content: encrypted,
-                        pubkey: topicKeys.pubkey
-                    }, topicKeys.secret);
-
-                    const pubs = pool.publish(RELAYS, event);
-                    // Wait for any success
-                    await Promise.any(pubs.map(p => new Promise(resolve => {
-                        if (p && typeof p.then === 'function') p.then(resolve).catch(() => resolve());
-                        else if (p && p.done) p.done.then(resolve).catch(() => resolve());
-                        else resolve();
-                    })));
-                } catch (e) {
-                    log('[SEND ERROR] ' + e.message, 'error-msg');
-                }
+                pool.publish(RELAYS, event);
+            } catch (e) {
+                console.error('Send error:', e);
             }
-        });
+        }
 
-        log('Welcome to Talkbox Buildless Terminal Client.');
-        log('Enter your terminal password to begin...');
+        window.onload = initXterm;
     </script>
 
 </body>

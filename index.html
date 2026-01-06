@@ -299,7 +299,7 @@
       <button class="tab active" onclick="switchTab('generate')">1. Generate</button>
       <button class="tab" onclick="switchTab('send')">2. Send</button>
       <button class="tab" onclick="switchTab('read')">3. Read</button>
-      <button class="tab" style="color: #d63384;" onclick="switchTab('terminal')">⚡ Terminal</button>
+      <button class="tab" onclick="window.location.href='cli/'" style="color: #00ff00;">⚡ Terminal</button>
     </div>
 
     <!-- Generate Tab -->
@@ -350,27 +350,6 @@
       </div>
       <button onclick="readMessages()">Read Messages</button>
       <div id="read-result"></div>
-    </div>
-
-    <!-- Terminal Tab -->
-    <div id="terminal" class="tab-content"
-      style="background: #000; color: #00ff00; padding: 20px; border-radius: 8px; font-family: 'Consolas', 'Monaco', 'Courier New', monospace; height: 600px; display: none; overflow: hidden; flex-direction: column; border: 1px solid #333;">
-      <div style="margin-bottom: 20px;">
-        <div style="font-size: 14px; font-weight: bold; margin-bottom: 12px; letter-spacing: 1px;">&gt; TALKBOX VIRTUAL
-          TERMINAL (XTERM.JS)</div>
-        <div
-          style="display: flex; gap: 10px; align-items: center; background: #111; padding: 10px; border-radius: 4px; border: 1px solid #222;">
-          <span style="font-size: 12px; color: #888;">PASS:</span>
-          <input type="password" id="term-password"
-            style="background: #000; color: #00ff00; border: 1px solid #444; flex: 1; padding: 5px 10px; border-radius: 2px; font-family: inherit;"
-            placeholder="terminal secret">
-          <button onclick="connectTerminal()"
-            style="background: #009900; color: #fff; border: none; padding: 6px 15px; cursor: pointer; border-radius: 2px; font-size: 12px; width: auto; font-weight: bold;">CONNECT</button>
-        </div>
-      </div>
-
-      <div id="xterm-container"
-        style="flex: 1; background: #000; border-radius: 4px; overflow: hidden; border: 1px solid #222;"></div>
     </div>
   </div>
 
@@ -649,93 +628,6 @@
     function showResult(elementId, message, type) {
       const resultDiv = document.getElementById(elementId);
       resultDiv.innerHTML = `<div class="result ${type}"><h3>${type === 'error' ? '⚠' : '✓'}</h3>${message}</div>`;
-    }
-
-    // --- Terminal Logic (Xterm.js) ---
-    let termPool = null;
-    let termSub = null;
-    let termTopicKeys = null;
-    let xterm = null;
-
-    async function connectTerminal() {
-      const password = document.getElementById('term-password').value;
-      if (!password) return alert('Enter password');
-
-      if (!xterm) {
-        xterm = new Terminal({
-          cursorBlink: true,
-          theme: {
-            background: '#000000',
-            foreground: '#00ff00',
-            cursor: '#00ff00'
-          },
-          fontFamily: 'Consolas, "Liberation Mono", Courier, monospace',
-          fontSize: 14
-        });
-        xterm.open(document.getElementById('xterm-container'));
-
-        xterm.onData(data => {
-          sendTermInput(data);
-        });
-      }
-
-      xterm.write('\x1b[32m[SYSTEM] Connecting to Nostr relays...\x1b[0m\r\n');
-
-      try {
-        if (termPool) termPool.close(RELAYS);
-        termPool = new window.NostrTools.SimplePool();
-
-        const terminalUrl = `terminal://talkbox-v1/${password}`;
-        const encoder = new TextEncoder();
-        const data = encoder.encode(terminalUrl + 'talkbox-comments-v1');
-        const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-        const secret = new Uint8Array(hashBuffer);
-        const pubkey = window.NostrTools.getPublicKey(secret);
-        const conversationKey = window.NostrTools.nip44.getConversationKey(secret, pubkey);
-
-        termTopicKeys = { secret, pubkey, conversationKey };
-
-        xterm.write(`\x1b[32m[SYSTEM] Identity derived: ${pubkey.substring(0, 8)}...\x1b[0m\r\n`);
-
-        termSub = termPool.subscribeMany(RELAYS, {
-          kinds: [20002],
-          '#p': [pubkey],
-          since: Math.floor(Date.now() / 1000)
-        }, {
-          onevent(event) {
-            try {
-              const decrypted = window.NostrTools.nip44.decrypt(event.content, termTopicKeys.conversationKey);
-              xterm.write(decrypted);
-            } catch (e) {
-              console.error('Decryption failed', e);
-            }
-          }
-        });
-
-        xterm.write('\x1b[32m[SYSTEM] Link Established. Streaming session active.\x1b[0m\r\n\r\n');
-      } catch (e) {
-        xterm.write(`\x1b[31m[ERROR] ${e.message}\x1b[0m\r\n`);
-      }
-    }
-
-    async function sendTermInput(input) {
-      if (!termTopicKeys || !termPool) return;
-
-      try {
-        const encrypted = window.NostrTools.nip44.encrypt(input, termTopicKeys.conversationKey);
-        const event = window.NostrTools.finalizeEvent({
-          kind: 20001,
-          created_at: Math.floor(Date.now() / 1000),
-          tags: [['p', termTopicKeys.pubkey], ['encrypted', 'nip44']],
-          content: encrypted,
-          pubkey: termTopicKeys.pubkey
-        }, termTopicKeys.secret);
-
-        const pubs = termPool.publish(RELAYS, event);
-        // Fire and forget for inputs to keep latency low
-      } catch (e) {
-        console.error('Send error:', e);
-      }
     }
 
     function copyToClipboard(text) {
