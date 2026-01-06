@@ -83,7 +83,7 @@ async function main() {
     const setupWebRTC = async () => {
         try {
             // Check if wrtc is properly installed and available
-            const wrtc = (await import('wrtc')).default;
+            const wrtc = (await import('@koush/wrtc')).default;
             const SimplePeer = (await import('simple-peer')).default;
 
             talkbox.subscribe(async (msg) => {

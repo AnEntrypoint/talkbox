@@ -27,15 +27,14 @@
     "nostr-tools": "^2.19.4"
   },
   "dependencies": {
+    "@koush/wrtc": "^0.5.3",
     "hi-base32": "^0.5.1",
     "inquirer": "^9.2.12",
     "jsqr": "^1.4.0",
-    "node-datachannel": "^0.31.0",
     "node-pty": "^1.1.0",
     "ora": "^8.0.1",
     "simple-peer": "^9.11.1",
     "websocket-polyfill": "^0.0.3",
-    "wrtc": "^0.4.7",
     "ws": "^8.16.0"
   }
 }
