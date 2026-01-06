@@ -54,19 +54,12 @@ async function main() {
     let outputBuffer = '';
     let flushTimeout = null;
 
-    let rtcPeer = null;
-    let dataChannel = null;
-
     async function sendOutput(data) {
-        if (dataChannel && dataChannel.connected) {
-            dataChannel.send(data);
-        } else {
-            talkbox.post(data, {
-                encrypt: true,
-                kind: 20002,
-                client: 'talkbox-cli-terminal'
-            }).catch(() => { });
-        }
+        talkbox.post(data, {
+            encrypt: true,
+            kind: 20002,
+            client: 'talkbox-cli-terminal'
+        }).catch(() => { });
     }
 
     function flushOutput() {
@@ -78,12 +71,24 @@ async function main() {
         sendOutput(data);
     }
 
-    // WebRTC signaling disabled due to native binary instability in multi-node environments
-    const setupWebRTC = async () => {
-        // Falling back to ultra-optimized Nostr transport
-    };
+    term.onData((data) => {
+        process.stdout.write(data);
+        outputBuffer += data;
 
-    await setupWebRTC();
+        if (!flushTimeout) {
+            flushTimeout = setTimeout(flushOutput, 15);
+        }
+    });
+
+    // Local input handling
+    if (process.stdin.isTTY) {
+        process.stdin.setRawMode(true);
+        process.stdin.resume();
+        process.stdin.on('data', (data) => {
+            // Handle Ctrl+C locally? Let the PTY handle it.
+            term.write(data);
+        });
+    }
 
     // Subscribe to ephemeral events (kind 20001 for commands/input)
     const sub = await talkbox.subscribe(async (msg) => {
@@ -100,10 +105,11 @@ async function main() {
 
     console.log(`[✓] Terminal Identity: ${topicPubkey}`);
     console.log(`[!] Mode: Fully Encrypted & Ephemeral (Real-time only)`);
-    console.log(`[!] Listening for commands...`);
+    console.log(`[!] Listening for local and remote commands...`);
 
     term.onExit(({ exitCode, signal }) => {
         console.log(`\n[!] Shell exited with code ${exitCode}. Closing down...`);
+        if (process.stdin.isTTY) process.stdin.setRawMode(false);
         process.exit(exitCode);
     });
 }

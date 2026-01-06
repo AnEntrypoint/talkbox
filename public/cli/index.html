@@ -165,12 +165,14 @@
             if (xterm) return;
             xterm = new Terminal({
                 cursorBlink: true,
+                convertEol: true,
                 theme: {
                     background: '#000000',
                     selectionBackground: '#333333'
                 },
                 fontFamily: 'Consolas, "Liberation Mono", Courier, monospace',
                 fontSize: 14,
+                scrollback: 10000,
                 allowProposedApi: true
             });
             xterm.open(document.getElementById('xterm-container'));
@@ -184,6 +186,7 @@
             xterm.writeln('To start the server-side shell, run:');
             xterm.writeln('\x1b[33mnpx -y gxe@latest AnEntrypoint/talkbox start\x1b[0m');
             xterm.writeln('');
+            xterm.writeln('\x1b[90mTIP: Use Ctrl+C/V or Cmd+C/V for Copy/Paste.\x1b[0m');
             xterm.writeln('Enter password above to establish secure Nostr link.');
         }
 
@@ -243,12 +246,7 @@
             }
         }
 
-        let rtcPeer = null;
-        let dataChannel = null;
 
-        function initWebRTC() { }
-        function handleRTCSignal(data) { }
-        async function sendSignaling(data) { }
 
         let inputBuffer = '';
         let inputTimeout = null;
@@ -258,12 +256,10 @@
             const data = inputBuffer;
             inputBuffer = '';
             inputTimeout = null;
+            sendActualInput(data);
+        }
 
-            if (dataChannel && dataChannel.connected) {
-                dataChannel.send(data);
-                return;
-            }
-
+        async function sendActualInput(data) {
             try {
                 const NT = window.NostrTools || window.nostrTools;
                 const encrypted = NT.nip44.encrypt(data, topicKeys.conversationKey);
