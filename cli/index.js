@@ -1,7 +1,7 @@
 import 'websocket-polyfill';
 import Talkbox from '../lib/index.js';
 
-import { exec } from 'child_process';
+import { spawn } from 'child_process';
 import ora from 'ora';
 
 async function main() {
@@ -40,37 +40,60 @@ async function main() {
 
     const spinner = ora('Initializing connection to relays...').start();
 
-    // Subscribe to ephemeral events (kind 20000-29999)
-    // We'll use 20001 for commands and 20002 for responses
+    let shell = null;
+
+    function startShell() {
+        // Use powershell on windows, sh on others
+        const shellCmd = process.platform === 'win32' ? 'powershell.exe' : 'sh';
+        const shellArgs = process.platform === 'win32' ? ['-NoLogo', '-NoExit', '-Command', '-'] : [];
+
+        console.log(`[!] Starting persistent shell: ${shellCmd}`);
+        shell = spawn(shellCmd, shellArgs, {
+            stdio: ['pipe', 'pipe', 'pipe'],
+            env: process.env
+        });
+
+        shell.stdout.on('data', async (data) => {
+            const output = data.toString();
+            process.stdout.write(output);
+            await talkbox.post(output, {
+                encrypt: true,
+                kind: 20002,
+                client: 'talkbox-cli-terminal'
+            });
+        });
+
+        shell.stderr.on('data', async (data) => {
+            const output = data.toString();
+            process.stderr.write(output);
+            await talkbox.post(output, {
+                encrypt: true,
+                kind: 20002,
+                client: 'talkbox-cli-terminal'
+            });
+        });
+
+        shell.on('exit', (code) => {
+            console.log(`[!] Shell exited with code ${code}. Restarting...`);
+            setTimeout(startShell, 1000);
+        });
+    }
+
+    startShell();
+
+    // Subscribe to ephemeral events (kind 20001 for commands)
     const sub = await talkbox.subscribe(async (msg) => {
         spinner.stop();
-
-        // Only process messages that aren't from us (if possible to distinguish, but here we share identity)
-        // In shared identity mode, we might see our own responses if we don't filter.
-        // But since we use kind 20001 for commands and 20002 for responses, we won't loop.
 
         if (msg.event.kind === 20001) {
             console.log(`[${new Date().toLocaleTimeString()}] > ${msg.content}`);
 
-            const execSpinner = ora('Executing...').start();
-            exec(msg.content, async (error, stdout, stderr) => {
-                execSpinner.stop();
-
-                const output = stdout || stderr || (error ? error.message : '(no output)');
-
-                if (stdout) console.log(stdout);
-                if (stderr) console.error(stderr);
-                if (error && !stderr && !stdout) console.error(error.message);
-
-                await talkbox.post(output, {
-                    encrypt: true,
-                    kind: 20002, // Response
-                    client: 'talkbox-cli-terminal'
-                });
-
-                console.log(`[✓] Response sent back encrypted.`);
-                spinner.start('Waiting for next command...');
-            });
+            if (shell && shell.stdin.writable) {
+                // Write command to shell stdin
+                shell.stdin.write(msg.content + '\n');
+            } else {
+                console.error('[!] Shell not ready or stdin not writable');
+            }
         }
     }, {
         kinds: [20001],
