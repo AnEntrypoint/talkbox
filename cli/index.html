@@ -246,32 +246,24 @@
 
                 xterm.write(`\x1b[32m[SYSTEM] Identity Derived: ${pubkey.substring(0, 12)}...\x1b[0m\r\n`);
 
-                const startTime = Math.floor(Date.now() / 1000);
+                const startTime = Math.floor(Date.now() / 1000) + 2;
                 const filter = {
                     kinds: [20002],
                     '#p': [pubkey],
                     since: startTime
                 };
 
-                console.log('[DEBUG] Subscribing with filter:', filter);
-
-                sub = pool.subscribeMany(RELAYS, [filter], {
+                sub = pool.subscribeMany(RELAYS, filter, {
                     onevent(event) {
-                        // Strict ignore of any event created before this exact millisecond
                         if (event.created_at < startTime) return;
-
                         try {
                             const decrypted = NT.nip44.decrypt(event.content, topicKeys.conversationKey);
                             if (event.kind === 20002) {
                                 xterm.write(decrypted);
                             }
-                        } catch (e) {
-                            console.warn('[DEBUG] Decryption failed or event error:', e);
-                        }
+                        } catch (e) { }
                     },
-                    oneose() {
-                        console.log('[DEBUG] Subscription EOSE');
-                    }
+                    oneose() { }
                 });
 
                 statusEl.textContent = 'ONLINE';
