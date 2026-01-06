@@ -181,6 +181,9 @@
 
             // Initial message
             xterm.writeln('\x1b[32mTalkbox Virtual Terminal Ready.\x1b[0m');
+            xterm.writeln('To start the server-side shell, run:');
+            xterm.writeln('\x1b[33mnpx -y gxe@latest AnEntrypoint/talkbox start\x1b[0m');
+            xterm.writeln('');
             xterm.writeln('Enter password above to establish secure Nostr link.');
         }
 
