@@ -27,7 +27,6 @@
     "nostr-tools": "^2.19.4"
   },
   "dependencies": {
-    "@koush/wrtc": "^0.5.3",
     "hi-base32": "^0.5.1",
     "inquirer": "^9.2.12",
     "jsqr": "^1.4.0",

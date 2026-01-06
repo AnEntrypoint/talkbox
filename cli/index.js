@@ -78,63 +78,9 @@ async function main() {
         sendOutput(data);
     }
 
-    // Signaling handling (Kind 20003)
+    // WebRTC signaling disabled due to native binary instability in multi-node environments
     const setupWebRTC = async () => {
-        try {
-            // Check if wrtc is properly installed and available
-            const wrtc = (await import('@koush/wrtc')).default;
-            const SimplePeer = (await import('simple-peer')).default;
-
-            talkbox.subscribe(async (msg) => {
-                if (msg.event.kind === 20003) {
-                    try {
-                        const signal = JSON.parse(msg.content);
-                        if (!rtcPeer) {
-                            console.log('[RTC] Incoming signaling, initializing peer...');
-                            rtcPeer = new SimplePeer({
-                                initiator: false,
-                                wrtc: wrtc,
-                                trickle: true,
-                                config: { iceServers: [] }
-                            });
-
-                            rtcPeer.on('signal', data => {
-                                talkbox.post(JSON.stringify(data), { encrypt: true, kind: 20003 });
-                            });
-
-                            rtcPeer.on('connect', () => {
-                                console.log('[RTC] P2P Peer Connected.');
-                                dataChannel = rtcPeer;
-                            });
-
-                            rtcPeer.on('data', data => {
-                                term.write(data.toString());
-                            });
-
-                            rtcPeer.on('close', () => {
-                                console.log('[RTC] P2P Peer Closed.');
-                                dataChannel = null;
-                                rtcPeer = null;
-                            });
-
-                            rtcPeer.on('error', (err) => {
-                                console.error('[RTC] Peer Error:', err.message);
-                                dataChannel = null;
-                                rtcPeer = null;
-                            });
-                        }
-                        rtcPeer.signal(signal);
-                    } catch (e) {
-                        console.error('[RTC] Signaling error:', e.message);
-                    }
-                }
-            }, { kinds: [20003], decrypt: true, since: Math.floor(Date.now() / 1000) });
-
-            console.log('[!] WebRTC signaling ready.');
-        } catch (e) {
-            if (spinner.isSpinning) spinner.stop();
-            console.warn('[!] WebRTC P2P unavailable (native binaries missing/failed). Using pure Nostr relay mode.');
-        }
+        // Falling back to ultra-optimized Nostr transport
     };
 
     await setupWebRTC();
