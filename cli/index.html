@@ -241,12 +241,18 @@
             }
         }
 
-        async function sendTermInput(input) {
-            if (!topicKeys || !pool) return;
+        let inputBuffer = '';
+        let inputTimeout = null;
+
+        function flushInput() {
+            if (!inputBuffer) return;
+            const data = inputBuffer;
+            inputBuffer = '';
+            inputTimeout = null;
 
             try {
                 const NT = window.NostrTools || window.nostrTools;
-                const encrypted = NT.nip44.encrypt(input, topicKeys.conversationKey);
+                const encrypted = NT.nip44.encrypt(data, topicKeys.conversationKey);
 
                 const event = NT.finalizeEvent({
                     kind: 20001,
@@ -259,6 +265,16 @@
                 pool.publish(RELAYS, event);
             } catch (e) {
                 console.error('Send error:', e);
+            }
+        }
+
+        async function sendTermInput(input) {
+            if (!topicKeys || !pool) return;
+
+            inputBuffer += input;
+            if (!inputTimeout) {
+                // 10ms batching window for input
+                inputTimeout = setTimeout(flushInput, 10);
             }
         }
 

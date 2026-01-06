@@ -5,6 +5,7 @@ import Talkbox from '../lib/index.js';
 import ora from 'ora';
 import pty from 'node-pty';
 import os from 'os';
+import { nip44 } from 'nostr-tools';
 
 async function main() {
     console.log(`
@@ -33,10 +34,11 @@ async function main() {
         useTopicKeyAsSender: true
     });
 
-    const { pubkey } = await talkbox._deriveTopicKeys();
+    const { secret: topicSecret, pubkey: topicPubkey } = await talkbox._deriveTopicKeys();
+    const conversationKey = nip44.getConversationKey(topicSecret, topicPubkey);
 
     console.log(`[✓] Terminal Identity Derived.`);
-    console.log(`[!] Pubkey: ${pubkey}`);
+    console.log(`[!] Pubkey: ${topicPubkey}`);
     console.log(`[!] Mode: Fully Encrypted & Ephemeral (Real-time only)`);
 
     const spinner = ora('Connecting to Nostr network...').start();
@@ -44,19 +46,37 @@ async function main() {
     const shellCmd = os.platform() === 'win32' ? 'powershell.exe' : 'sh';
     const term = pty.spawn(shellCmd, [], {
         name: 'xterm-256color',
-        cols: 80,
-        rows: 24,
+        cols: 100,
+        rows: 30,
         cwd: process.cwd(),
         env: process.env
     });
 
-    term.onData(async (data) => {
-        process.stdout.write(data);
-        await talkbox.post(data, {
+    let outputBuffer = '';
+    let flushTimeout = null;
+
+    function flushOutput() {
+        if (!outputBuffer) return;
+        const data = outputBuffer;
+        outputBuffer = '';
+        flushTimeout = null;
+
+        // Fire and forget broadcast
+        talkbox.post(data, {
             encrypt: true,
             kind: 20002,
             client: 'talkbox-cli-terminal'
-        });
+        }).catch(() => { });
+    }
+
+    term.onData((data) => {
+        process.stdout.write(data);
+        outputBuffer += data;
+
+        // Use a 15ms batching window for output to prevent relay flooding
+        if (!flushTimeout) {
+            flushTimeout = setTimeout(flushOutput, 15);
+        }
     });
 
     // Subscribe to ephemeral events (kind 20001 for commands/input)
