@@ -1,6 +1,6 @@
 import 'websocket-polyfill';
 import Talkbox from '../lib/index.js';
-import inquirer from 'inquirer';
+
 import { exec } from 'child_process';
 import ora from 'ora';
 
@@ -15,14 +15,13 @@ async function main() {
    Nostr-Powered Remote Terminal
     `);
 
-    const { password } = await inquirer.prompt([
-        {
-            type: 'password',
-            name: 'password',
-            message: 'Enter Terminal Password:',
-            mask: '*'
-        }
-    ]);
+    const password = process.env.TALKBOX_PASSWORD || process.argv[2];
+    if (!password) {
+        console.error('[!] Error: No password provided.');
+        console.error('    Use TALKBOX_PASSWORD environment variable or pass password as first argument.');
+        console.error('    Example: talkbox my-secret-password');
+        process.exit(1);
+    }
 
     // Use a specific salt for Terminal Mode to isolate from comments
     const terminalUrl = `terminal://talkbox-v1/${password}`;
