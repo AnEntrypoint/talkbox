@@ -34,14 +34,13 @@ async function main() {
         useTopicKeyAsSender: true
     });
 
+    const spinner = ora('Connecting to Nostr network...').start();
+
+    // Deriving keys first...
     const { secret: topicSecret, pubkey: topicPubkey } = await talkbox._deriveTopicKeys();
     const conversationKey = nip44.getConversationKey(topicSecret, topicPubkey);
 
-    console.log(`[✓] Terminal Identity Derived.`);
-    console.log(`[!] Pubkey: ${topicPubkey}`);
-    console.log(`[!] Mode: Fully Encrypted & Ephemeral (Real-time only)`);
-
-    const spinner = ora('Connecting to Nostr network...').start();
+    spinner.text = 'Initializing local shell...';
 
     const shellCmd = os.platform() === 'win32' ? 'powershell.exe' : 'sh';
     const term = pty.spawn(shellCmd, [], {
@@ -133,11 +132,12 @@ async function main() {
 
             console.log('[!] WebRTC signaling ready.');
         } catch (e) {
+            if (spinner.isSpinning) spinner.stop();
             console.warn('[!] WebRTC P2P unavailable (native binaries missing/failed). Using pure Nostr relay mode.');
         }
     };
 
-    setupWebRTC();
+    await setupWebRTC();
 
     // Subscribe to ephemeral events (kind 20001 for commands/input)
     const sub = await talkbox.subscribe(async (msg) => {
@@ -150,18 +150,19 @@ async function main() {
         since: Math.floor(Date.now() / 1000)
     });
 
-    spinner.succeed('Connected to Nostr network. Remote terminal ready.');
+    if (spinner.isSpinning) spinner.succeed('Nostr Link Established. Remote terminal ready.');
 
-    // Handle graceful exit
-    process.on('SIGINT', () => {
-        console.log('\nClosing connections...');
-        if (rtcPeer) rtcPeer.destroy();
-        talkbox.close();
-        process.exit();
+    console.log(`[✓] Terminal Identity: ${topicPubkey}`);
+    console.log(`[!] Mode: Fully Encrypted & Ephemeral (Real-time only)`);
+    console.log(`[!] Listening for commands...`);
+
+    term.onExit(({ exitCode, signal }) => {
+        console.log(`\n[!] Shell exited with code ${exitCode}. Closing down...`);
+        process.exit(exitCode);
     });
 }
 
 main().catch(err => {
-    console.error('[!] Fatal Error:', err);
+    console.error('\n[!] Fatal Error:', err.stack || err);
     process.exit(1);
 });
