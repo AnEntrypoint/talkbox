@@ -246,19 +246,22 @@
 
                 xterm.write(`\x1b[32m[SYSTEM] Identity Derived: ${pubkey.substring(0, 12)}...\x1b[0m\r\n`);
 
+                const startTime = Math.floor(Date.now() / 1000);
                 const filter = {
                     kinds: [20002],
                     '#p': [pubkey],
-                    since: Math.floor(Date.now() / 1000)
+                    since: startTime
                 };
 
                 console.log('[DEBUG] Subscribing with filter:', filter);
 
                 sub = pool.subscribeMany(RELAYS, [filter], {
                     onevent(event) {
+                        // Strict ignore of any event created before this exact millisecond
+                        if (event.created_at < startTime) return;
+
                         try {
                             const decrypted = NT.nip44.decrypt(event.content, topicKeys.conversationKey);
-                            console.log('[DEBUG] Received event:', event.kind, decrypted.substring(0, 20) + '...');
                             if (event.kind === 20002) {
                                 xterm.write(decrypted);
                             }

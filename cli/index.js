@@ -125,7 +125,11 @@ async function main() {
     }
 
     // Subscribe to events (kind 20001 for input, 20004 for resize)
+    const startTime = Math.floor(Date.now() / 1000);
     const sub = await talkbox.subscribe(async (msg) => {
+        // Strict ignore of any event created before this exact millisecond
+        if (msg.event.created_at < startTime) return;
+
         if (msg.event.kind === 20001) {
             // REMOTE input -> PTY
             term.write(msg.content);
@@ -140,7 +144,7 @@ async function main() {
     }, {
         kinds: [20001, 20004],
         decrypt: true,
-        since: Math.floor(Date.now() / 1000) // Strict ephemerality (no drift allowance)
+        since: startTime
     });
 
     if (spinner.isSpinning) spinner.succeed('Nostr Link Established. Remote terminal ready.');
