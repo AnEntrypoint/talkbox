@@ -11,15 +11,27 @@
     "decentralized"
   ],
   "scripts": {
-    "build": "echo 'Ready for GitHub Pages deployment'"
+    "build": "node build-lib.js && node prepare-gh-pages.js",
+    "build-lib": "node build-lib.js",
+    "start": "node cli/index.js"
+  },
+  "bin": {
+    "talkbox": "cli/index.js"
   },
   "author": "",
   "license": "MIT",
   "devDependencies": {
-    "@playwright/test": "^1.57.0"
+    "@esbuild/win32-x64": "^0.27.2",
+    "@playwright/test": "^1.57.0",
+    "esbuild": "^0.27.2",
+    "nostr-tools": "^2.19.4"
   },
   "dependencies": {
     "hi-base32": "^0.5.1",
-    "jsqr": "^1.4.0"
+    "jsqr": "^1.4.0",
+    "inquirer": "^9.2.12",
+    "ora": "^8.0.1",
+    "websocket-polyfill": "^0.0.3",
+    "ws": "^8.16.0"
   }
 }

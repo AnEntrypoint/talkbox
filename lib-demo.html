@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Talkbox Library Demo</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            max-width: 800px;
+            margin: 2rem auto;
+            padding: 0 1rem;
+        }
+
+        #comments {
+            margin-top: 2rem;
+            border-top: 1px solid #eee;
+        }
+
+        .comment {
+            padding: 1rem;
+            border-bottom: 1px solid #eee;
+        }
+
+        .date {
+            color: #888;
+            font-size: 0.8em;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>My Website Article</h1>
+    <p>This is some content on a page that uses Talkbox to provide comments.</p>
+
+    <div id="comment-section">
+        <h3>Comments</h3>
+        <textarea id="comment-text" rows="4" style="width:100%"></textarea>
+        <button id="post-btn" style="margin-top:0.5rem">Post Comment</button>
+        <div id="comments">Loading...</div>
+    </div>
+
+    <!-- Load the library -->
+    <script src="dist/talkbox-lib.js"></script>
+    <script>
+        // Init library
+        // Wait for it to load
+        window.addEventListener('load', async () => {
+            if (!window.Talkbox) {
+                document.getElementById('comments').innerHTML = 'Error: Talkbox library not loaded.';
+                return;
+            }
+
+            const talkbox = new window.Talkbox();
+
+            // Render comments
+            async function loadComments() {
+                const commentsDiv = document.getElementById('comments');
+                commentsDiv.innerHTML = 'Loading...';
+                try {
+                    const messages = await talkbox.getComments(50);
+                    if (messages.length === 0) {
+                        commentsDiv.innerHTML = 'No comments yet.';
+                        return;
+                    }
+                    commentsDiv.innerHTML = messages.map(m => `
+                        <div class="comment">
+                            <div>${escapeHtml(m.content)}</div>
+                            <div class="date">${m.date.toLocaleString()}</div>
+                        </div>
+                    `).join('');
+                } catch (e) {
+                    commentsDiv.innerHTML = 'Error loading comments: ' + e.message;
+                }
+            }
+
+            // Post comment
+            document.getElementById('post-btn').addEventListener('click', async () => {
+                const text = document.getElementById('comment-text').value;
+                if (!text) return;
+
+                document.getElementById('post-btn').disabled = true;
+                document.getElementById('post-btn').innerText = 'Posting...';
+
+                const success = await talkbox.postComment(text);
+
+                document.getElementById('post-btn').disabled = false;
+                document.getElementById('post-btn').innerText = 'Post Comment';
+
+                if (success) {
+                    document.getElementById('comment-text').value = '';
+                    loadComments(); // Refresh
+                } else {
+                    alert('Failed to post comment.');
+                }
+            });
+
+            // Initial load
+            loadComments();
+        });
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.innerText = text;
+            return div.innerHTML;
+        }
+    </script>
+</body>
+
+</html>

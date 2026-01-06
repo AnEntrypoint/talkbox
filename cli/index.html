@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Talkbox - Remote Terminal</title>
+    <script src="../nostr-tools.js"></script>
+    <style>
+        body,
+        html {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            background-color: #0c0c0c;
+            color: #cccccc;
+            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+            display: flex;
+            flex-direction: column;
+        }
+
+        #terminal-header {
+            background-color: #1e1e1e;
+            padding: 10px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #333;
+        }
+
+        #terminal-header h1 {
+            font-size: 14px;
+            margin: 0;
+            color: #00ff00;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        #auth-panel {
+            padding: 20px;
+            background-color: #161616;
+            border-bottom: 1px solid #333;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        input[type="password"],
+        input[type="text"] {
+            background-color: #000;
+            border: 1px solid #444;
+            color: #00ff00;
+            padding: 8px 12px;
+            outline: none;
+            font-family: inherit;
+        }
+
+        input[type="password"]:focus,
+        input[type="text"]:focus {
+            border-color: #00ff00;
+        }
+
+        button {
+            background-color: #00ff00;
+            color: #000;
+            border: none;
+            padding: 8px 16px;
+            cursor: pointer;
+            font-weight: bold;
+            font-family: inherit;
+            text-transform: uppercase;
+        }
+
+        button:hover {
+            background-color: #00cc00;
+        }
+
+        #output {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-break: break-all;
+            line-height: 1.4;
+        }
+
+        .system-msg {
+            color: #888;
+            font-style: italic;
+        }
+
+        .command-msg {
+            color: #00ff00;
+            font-weight: bold;
+        }
+
+        .error-msg {
+            color: #ff3333;
+        }
+
+        .success-msg {
+            color: #00ff00;
+        }
+
+        #input-line {
+            display: flex;
+            padding: 10px 20px;
+            background-color: #161616;
+            border-top: 1px solid #333;
+        }
+
+        #prompt {
+            color: #00ff00;
+            margin-right: 10px;
+            user-select: none;
+        }
+
+        #cmd-input {
+            flex: 1;
+            background: transparent;
+            border: none;
+            color: #00ff00;
+            outline: none;
+            font-family: inherit;
+            font-size: 16px;
+        }
+
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #0c0c0c;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #333;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #444;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="terminal-header">
+        <h1>Talkbox Remote Terminal v1.0</h1>
+        <div id="status">OFFLINE</div>
+    </div>
+
+    <div id="auth-panel">
+        <span>PASSWORD:</span>
+        <input type="password" id="password" placeholder="Terminal Secret">
+        <button onclick="connect()">Connect</button>
+    </div>
+
+    <div id="output"></div>
+
+    <div id="input-line">
+        <span id="prompt">$</span>
+        <input type="text" id="cmd-input" placeholder="Type a command and press Enter..." disabled>
+    </div>
+
+    <script>
+        const RELAYS = [
+            'wss://relay.damus.io',
+            'wss://nos.lol',
+            'wss://nostr.wine',
+            'wss://relay.nostr.band'
+        ];
+
+        let pool = null;
+        let topicKeys = null;
+        let sub = null;
+
+        const outputEl = document.getElementById('output');
+        const inputEl = document.getElementById('cmd-input');
+        const statusEl = document.getElementById('status');
+        const passwordEl = document.getElementById('password');
+
+        function log(text, className = '') {
+            const div = document.createElement('div');
+            if (className) div.className = className;
+            div.textContent = text;
+            outputEl.appendChild(div);
+            outputEl.scrollTop = outputEl.scrollHeight;
+        }
+
+        async function connect() {
+            const password = passwordEl.value;
+            if (!password) return;
+
+            log('[SYSTEM] Connecting to relays...', 'system-msg');
+            statusEl.textContent = 'CONNECTING...';
+
+            try {
+                const NT = window.NostrTools || window.nostrTools;
+                if (!NT) throw new Error('NostrTools not found. Check your internet connection or script path.');
+
+                if (pool) pool.close(RELAYS);
+                pool = new NT.SimplePool();
+
+                // Derive shared terminal identity (same as CLI)
+                const terminalUrl = `terminal://talkbox-v1/${password}`;
+                const encoder = new TextEncoder();
+                const data = encoder.encode(terminalUrl + 'talkbox-comments-v1');
+                const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+                const secret = new Uint8Array(hashBuffer);
+                const pubkey = NT.getPublicKey(secret);
+                const conversationKey = NT.nip44.getConversationKey(secret, pubkey);
+
+                topicKeys = { secret, pubkey, conversationKey };
+
+                log('[SYSTEM] Identity derived. Key: ' + pubkey.substring(0, 12) + '...', 'system-msg');
+
+                // Subscribe to kind 20002 (Terminal responses)
+                sub = pool.subscribeMany(RELAYS, [{
+                    kinds: [20002],
+                    '#p': [pubkey]
+                }], {
+                    onevent(event) {
+                        try {
+                            const decrypted = NT.nip44.decrypt(event.content, topicKeys.conversationKey);
+                            log(decrypted);
+                        } catch (e) {
+                            console.error('Decryption failed', e);
+                        }
+                    }
+                });
+
+                statusEl.textContent = 'ONLINE';
+                statusEl.style.color = '#00ff00';
+                inputEl.disabled = false;
+                inputEl.focus();
+                log('[SYSTEM] Link Established. Remote terminal ready.', 'success-msg');
+
+            } catch (e) {
+                log('[ERROR] ' + e.message, 'error-msg');
+                statusEl.textContent = 'ERROR';
+                statusEl.style.color = '#ff3333';
+            }
+        }
+
+        inputEl.addEventListener('keypress', async (e) => {
+            if (e.key === 'Enter') {
+                const cmd = inputEl.value.trim();
+                if (!cmd) return;
+
+                log('$ ' + cmd, 'command-msg');
+                inputEl.value = '';
+
+                try {
+                    const NT = window.NostrTools || window.nostrTools;
+                    const encrypted = NT.nip44.encrypt(cmd, topicKeys.conversationKey);
+
+                    const event = NT.finalizeEvent({
+                        kind: 20001, // Command
+                        created_at: Math.floor(Date.now() / 1000),
+                        tags: [
+                            ['p', topicKeys.pubkey],
+                            ['encrypted', 'nip44']
+                        ],
+                        content: encrypted,
+                        pubkey: topicKeys.pubkey
+                    }, topicKeys.secret);
+
+                    const pubs = pool.publish(RELAYS, event);
+                    // Wait for any success
+                    await Promise.any(pubs.map(p => new Promise(resolve => {
+                        if (p && typeof p.then === 'function') p.then(resolve);
+                        else if (p && p.done) p.done.then(resolve);
+                        else resolve();
+                    })));
+                } catch (e) {
+                    log('[SEND ERROR] ' + e.message, 'error-msg');
+                }
+            }
+        });
+
+        log('Welcome to Talkbox Buildless Terminal Client.');
+        log('Enter your terminal password to begin...');
+    </script>
+
+</body>
+
+</html>
