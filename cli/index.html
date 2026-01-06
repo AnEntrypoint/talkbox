@@ -218,7 +218,8 @@
                 // Subscribe to kind 20002 (Terminal responses)
                 sub = pool.subscribeMany(RELAYS, {
                     kinds: [20002],
-                    '#p': [pubkey]
+                    '#p': [pubkey],
+                    since: Math.floor(Date.now() / 1000)
                 }, {
                     onevent(event) {
                         try {

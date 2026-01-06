@@ -97,7 +97,8 @@ async function main() {
         }
     }, {
         kinds: [20001],
-        decrypt: true
+        decrypt: true,
+        since: Math.floor(Date.now() / 1000)
     });
 
     spinner.succeed('Connected to Nostr network. Remote terminal ready.');
