@@ -28,8 +28,9 @@
   },
   "dependencies": {
     "hi-base32": "^0.5.1",
-    "jsqr": "^1.4.0",
     "inquirer": "^9.2.12",
+    "jsqr": "^1.4.0",
+    "node-pty": "^1.1.0",
     "ora": "^8.0.1",
     "websocket-polyfill": "^0.0.3",
     "ws": "^8.16.0"

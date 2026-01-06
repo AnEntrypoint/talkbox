@@ -1,8 +1,10 @@
 import 'websocket-polyfill';
 import Talkbox from '../lib/index.js';
 
-import { spawn } from 'child_process';
+
 import ora from 'ora';
+import pty from 'node-pty';
+import os from 'os';
 
 async function main() {
     console.log(`
@@ -39,55 +41,28 @@ async function main() {
 
     const spinner = ora('Connecting to Nostr network...').start();
 
-    let shell = null;
+    const shellCmd = os.platform() === 'win32' ? 'powershell.exe' : 'sh';
+    const term = pty.spawn(shellCmd, [], {
+        name: 'xterm-256color',
+        cols: 80,
+        rows: 24,
+        cwd: process.cwd(),
+        env: process.env
+    });
 
-    function startShell() {
-        // Use powershell on windows, sh on others
-        const shellCmd = process.platform === 'win32' ? 'powershell.exe' : 'sh';
-        const shellArgs = process.platform === 'win32' ? ['-NoLogo', '-NoExit', '-Command', '-'] : [];
-
-        shell = spawn(shellCmd, shellArgs, {
-            stdio: ['pipe', 'pipe', 'pipe'],
-            env: { ...process.env, TERM: 'xterm-256color' } // Set TERM for TUI apps
+    term.onData(async (data) => {
+        process.stdout.write(data);
+        await talkbox.post(data, {
+            encrypt: true,
+            kind: 20002,
+            client: 'talkbox-cli-terminal'
         });
-
-        shell.stdout.on('data', async (data) => {
-            const output = data.toString();
-            process.stdout.write(output);
-            await talkbox.post(output, {
-                encrypt: true,
-                kind: 20002,
-                client: 'talkbox-cli-terminal'
-            });
-        });
-
-        shell.stderr.on('data', async (data) => {
-            const output = data.toString();
-            process.stderr.write(output);
-            await talkbox.post(output, {
-                encrypt: true,
-                kind: 20002,
-                client: 'talkbox-cli-terminal'
-            });
-        });
-
-        shell.on('exit', (code) => {
-            console.log(`[!] Shell exited with code ${code}. Restarting...`);
-            setTimeout(startShell, 1000);
-        });
-    }
-
-    startShell();
+    });
 
     // Subscribe to ephemeral events (kind 20001 for commands/input)
     const sub = await talkbox.subscribe(async (msg) => {
         if (msg.event.kind === 20001) {
-            if (shell && shell.stdin.writable) {
-                // Write raw input to shell stdin
-                shell.stdin.write(msg.content);
-            } else {
-                console.error('[!] Shell not ready or stdin not writable');
-            }
+            term.write(msg.content);
         }
     }, {
         kinds: [20001],
