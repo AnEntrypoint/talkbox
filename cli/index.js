@@ -59,7 +59,11 @@ async function main() {
             encrypt: true,
             kind: 20002,
             client: 'talkbox-cli-terminal'
-        }).catch(() => { });
+        }).then(() => {
+            // console.log(`[DEBUG] Broadcast success (${data.length} bytes)`);
+        }).catch((err) => {
+            console.error('[!] Broadcast error:', err.message);
+        });
     }
 
     function flushOutput() {
@@ -72,11 +76,14 @@ async function main() {
     }
 
     term.onData((data) => {
+        // Output to local terminal
         process.stdout.write(data);
+
+        // Remote output buffer
         outputBuffer += data;
 
         if (!flushTimeout) {
-            flushTimeout = setTimeout(flushOutput, 15);
+            flushTimeout = setTimeout(flushOutput, 25); // Slightly larger window for stability
         }
     });
 
@@ -89,7 +96,7 @@ async function main() {
         try {
             process.stdin.setRawMode(true);
             process.stdin.on('data', (data) => {
-                term.write(data);
+                term.write(data.toString());
             });
 
             // Sync local resize to PTY
@@ -116,7 +123,7 @@ async function main() {
     }, {
         kinds: [20001, 20004],
         decrypt: true,
-        since: Math.floor(Date.now() / 1000)
+        since: Math.floor(Date.now() / 1000) - 60 // 1 minute window for safety
     });
 
     if (spinner.isSpinning) spinner.succeed('Nostr Link Established. Remote terminal ready.');
