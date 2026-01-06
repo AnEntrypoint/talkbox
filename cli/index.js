@@ -82,21 +82,36 @@ async function main() {
 
     // Local input handling
     if (process.stdin.isTTY) {
-        process.stdin.setRawMode(true);
-        process.stdin.resume();
-        process.stdin.on('data', (data) => {
-            // Handle Ctrl+C locally? Let the PTY handle it.
-            term.write(data);
-        });
+        try {
+            process.stdin.setRawMode(true);
+            process.stdin.resume();
+            process.stdin.on('data', (data) => {
+                term.write(data);
+            });
+
+            // Sync local resize to PTY
+            process.stdout.on('resize', () => {
+                term.resize(process.stdout.columns, process.stdout.rows);
+            });
+        } catch (e) {
+            console.warn('[!] Warning: Could not enable raw mode on stdin.');
+        }
     }
 
-    // Subscribe to ephemeral events (kind 20001 for commands/input)
+    // Subscribe to events (kind 20001 for input, 20004 for resize)
     const sub = await talkbox.subscribe(async (msg) => {
         if (msg.event.kind === 20001) {
             term.write(msg.content);
+        } else if (msg.event.kind === 20004) {
+            try {
+                const { cols, rows } = JSON.parse(msg.content);
+                if (cols && rows) {
+                    term.resize(cols, rows);
+                }
+            } catch (e) { }
         }
     }, {
-        kinds: [20001],
+        kinds: [20001, 20004],
         decrypt: true,
         since: Math.floor(Date.now() / 1000)
     });
@@ -109,7 +124,9 @@ async function main() {
 
     term.onExit(({ exitCode, signal }) => {
         console.log(`\n[!] Shell exited with code ${exitCode}. Closing down...`);
-        if (process.stdin.isTTY) process.stdin.setRawMode(false);
+        if (process.stdin.isTTY) {
+            try { process.stdin.setRawMode(false); } catch (e) { }
+        }
         process.exit(exitCode);
     });
 }

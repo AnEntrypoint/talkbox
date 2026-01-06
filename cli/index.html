@@ -8,6 +8,7 @@
     <script src="../nostr-tools.js"></script>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.css" />
     <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.js"></script>
     <style>
         body,
         html {
@@ -24,16 +25,17 @@
 
         #terminal-header {
             background-color: #111;
-            padding: 10px 20px;
+            padding: 8px 15px;
             display: flex;
             justify-content: space-between;
             align-items: center;
             border-bottom: 1px solid #333;
             z-index: 10;
+            flex-shrink: 0;
         }
 
         #terminal-header h1 {
-            font-size: 14px;
+            font-size: 12px;
             margin: 0;
             color: #00ff00;
             text-transform: uppercase;
@@ -41,17 +43,22 @@
         }
 
         #auth-panel {
-            padding: 15px 20px;
+            padding: 10px 15px;
             background-color: #0a0a0a;
             border-bottom: 1px solid #222;
             display: flex;
-            gap: 15px;
+            gap: 12px;
             align-items: center;
             z-index: 10;
+            flex-shrink: 0;
+        }
+
+        #auth-panel.hidden {
+            display: none;
         }
 
         #auth-panel span {
-            font-size: 12px;
+            font-size: 11px;
             color: #888;
             font-weight: bold;
         }
@@ -60,11 +67,12 @@
             background-color: #000;
             border: 1px solid #444;
             color: #00ff00;
-            padding: 6px 12px;
+            padding: 5px 10px;
             outline: none;
             font-family: inherit;
             flex: 1;
-            max-width: 300px;
+            max-width: 250px;
+            font-size: 14px;
         }
 
         input[type="password"]:focus {
@@ -75,12 +83,12 @@
             background-color: #009900;
             color: #fff;
             border: none;
-            padding: 7px 20px;
+            padding: 6px 15px;
             cursor: pointer;
             font-weight: bold;
             font-family: inherit;
             text-transform: uppercase;
-            font-size: 12px;
+            font-size: 11px;
             border-radius: 2px;
         }
 
@@ -92,6 +100,7 @@
             flex: 1;
             position: relative;
             background-color: #000;
+            overflow: hidden;
         }
 
         #xterm-container {
@@ -100,14 +109,14 @@
             left: 0;
             right: 0;
             bottom: 0;
-            padding: 10px;
+            padding: 5px;
         }
 
         #status {
-            font-size: 11px;
+            font-size: 10px;
             font-weight: bold;
-            padding: 2px 8px;
-            border-radius: 3px;
+            padding: 2px 6px;
+            border-radius: 2px;
             background: #222;
         }
 
@@ -130,7 +139,7 @@
 <body>
 
     <div id="terminal-header">
-        <h1>Talkbox Remote Terminal (Xterm.js)</h1>
+        <h1>Talkbox Remote Terminal</h1>
         <div id="status" class="offline">OFFLINE</div>
     </div>
 
@@ -157,9 +166,11 @@
         let topicKeys = null;
         let sub = null;
         let xterm = null;
+        let fitAddon = null;
 
         const statusEl = document.getElementById('status');
         const passwordEl = document.getElementById('password');
+        const authPanel = document.getElementById('auth-panel');
 
         function initXterm() {
             if (xterm) return;
@@ -175,10 +186,25 @@
                 scrollback: 10000,
                 allowProposedApi: true
             });
+
+            fitAddon = new FitAddon.FitAddon();
+            xterm.loadAddon(fitAddon);
+
             xterm.open(document.getElementById('xterm-container'));
+            fitAddon.fit();
 
             xterm.onData(data => {
                 sendTermInput(data);
+            });
+
+            xterm.onResize(size => {
+                sendResize(size.cols, size.rows);
+            });
+
+            window.addEventListener('resize', () => {
+                if (fitAddon) {
+                    fitAddon.fit();
+                }
             });
 
             // Initial message
@@ -218,11 +244,13 @@
 
                 xterm.write(`\x1b[32m[SYSTEM] Identity Derived: ${pubkey.substring(0, 12)}...\x1b[0m\r\n`);
 
-                sub = pool.subscribeMany(RELAYS, {
-                    kinds: [20002, 20003],
-                    '#p': [pubkey],
-                    since: Math.floor(Date.now() / 1000)
-                }, {
+                sub = pool.subscribeMany(RELAYS, [
+                    {
+                        kinds: [20002],
+                        '#p': [pubkey],
+                        since: Math.floor(Date.now() / 1000)
+                    }
+                ], {
                     onevent(event) {
                         try {
                             const decrypted = NT.nip44.decrypt(event.content, topicKeys.conversationKey);
@@ -239,10 +267,43 @@
                 statusEl.className = 'online';
                 xterm.write('\x1b[32m[SYSTEM] Link Established. Session streaming active.\x1b[0m\r\n');
 
+                // Hide auth panel on success to maximize terminal space
+                authPanel.classList.add('hidden');
+                fitAddon.fit();
+
+                // Send initial size
+                setTimeout(() => {
+                    const dimensions = fitAddon.proposeDimensions();
+                    if (dimensions) {
+                        sendResize(dimensions.cols, dimensions.rows);
+                    }
+                }, 500);
+
             } catch (e) {
                 xterm.write(`\x1b[31m[ERROR] ${e.message}\x1b[0m\r\n`);
                 statusEl.textContent = 'ERROR';
                 statusEl.className = 'error';
+            }
+        }
+
+        async function sendResize(cols, rows) {
+            if (!topicKeys || !pool) return;
+            try {
+                const NT = window.NostrTools || window.nostrTools;
+                const content = JSON.stringify({ cols, rows });
+                const encrypted = NT.nip44.encrypt(content, topicKeys.conversationKey);
+
+                const event = NT.finalizeEvent({
+                    kind: 20004,
+                    created_at: Math.floor(Date.now() / 1000),
+                    tags: [['p', topicKeys.pubkey], ['encrypted', 'nip44']],
+                    content: encrypted,
+                    pubkey: topicKeys.pubkey
+                }, topicKeys.secret);
+
+                pool.publish(RELAYS, event);
+            } catch (e) {
+                console.error('Resize send error:', e);
             }
         }
 
