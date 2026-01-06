@@ -168,7 +168,7 @@
             'wss://relay.damus.io',
             'wss://nos.lol',
             'wss://nostr.wine',
-            'wss://relay.nostr.band'
+            'wss://relay.snort.social'
         ];
 
         let pool = null;
@@ -216,10 +216,10 @@
                 log('[SYSTEM] Identity derived. Key: ' + pubkey.substring(0, 12) + '...', 'system-msg');
 
                 // Subscribe to kind 20002 (Terminal responses)
-                sub = pool.subscribeMany(RELAYS, [{
+                sub = pool.subscribeMany(RELAYS, {
                     kinds: [20002],
                     '#p': [pubkey]
-                }], {
+                }, {
                     onevent(event) {
                         try {
                             const decrypted = NT.nip44.decrypt(event.content, topicKeys.conversationKey);
@@ -269,8 +269,8 @@
                     const pubs = pool.publish(RELAYS, event);
                     // Wait for any success
                     await Promise.any(pubs.map(p => new Promise(resolve => {
-                        if (p && typeof p.then === 'function') p.then(resolve);
-                        else if (p && p.done) p.done.then(resolve);
+                        if (p && typeof p.then === 'function') p.then(resolve).catch(() => resolve());
+                        else if (p && p.done) p.done.then(resolve).catch(() => resolve());
                         else resolve();
                     })));
                 } catch (e) {
